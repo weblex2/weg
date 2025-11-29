@@ -23,7 +23,7 @@ return new class extends Migration
         });
 
         // Nachträglich in LONGBLOB umwandeln
-        DB::statement("ALTER TABLE documents MODIFY content LONGBLOB");
+        DB::statement("ALTER TABLE weg_docs MODIFY content LONGBLOB");
     }
 
     /**
