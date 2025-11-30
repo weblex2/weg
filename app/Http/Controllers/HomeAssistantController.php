@@ -107,15 +107,17 @@ class HomeAssistantController extends Controller
     }
 
     /**
-     * Alle Areas (Bereiche) abrufen
+     * Websocket API Call über HTTP
      */
-    public function getAreas()
+    private function callWebsocketApi($type)
     {
         try {
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->haToken,
                 'Content-Type' => 'application/json',
-            ])->get("{$this->haUrl}/api/config/area_registry/list");
+            ])->post("{$this->haUrl}/api/websocket", [
+                'type' => $type
+            ]);
 
             if ($response->successful()) {
                 return $response->json();
@@ -123,54 +125,64 @@ class HomeAssistantController extends Controller
 
             return [];
         } catch (\Exception $e) {
+            \Log::error("Websocket API Error ({$type}): " . $e->getMessage());
             return [];
         }
     }
 
     /**
-     * Alle Devices abrufen
+     * Hole Areas direkt über Template
      */
-    public function getDevices()
+    private function getAreasViaTemplate()
     {
         try {
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->haToken,
                 'Content-Type' => 'application/json',
-            ])->get("{$this->haUrl}/api/config/device_registry/list");
+            ])->post("{$this->haUrl}/api/template", [
+                'template' => '{{ areas() | list }}'
+            ]);
 
             if ($response->successful()) {
-                return $response->json();
+                $result = $response->json();
+                return is_array($result) ? $result : [];
             }
 
             return [];
         } catch (\Exception $e) {
+            \Log::error("Template API Error: " . $e->getMessage());
             return [];
         }
     }
 
     /**
-     * Alle Entity Registry Einträge abrufen
+     * Hole Area für eine bestimmte Entity über Template
      */
-    public function getEntityRegistry()
+    private function getEntityArea($entityId)
     {
         try {
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->haToken,
                 'Content-Type' => 'application/json',
-            ])->get("{$this->haUrl}/api/config/entity_registry/list");
+            ])->post("{$this->haUrl}/api/template", [
+                'template' => "{{ area_name('{$entityId}') }}"
+            ]);
 
             if ($response->successful()) {
-                return $response->json();
+                $area = $response->body();
+                // Entferne Anführungszeichen falls vorhanden
+                $area = trim($area, '"\'');
+                return $area === 'None' || $area === 'unknown' || empty($area) ? null : $area;
             }
 
-            return [];
+            return null;
         } catch (\Exception $e) {
-            return [];
+            return null;
         }
     }
 
     /**
-     * Alle Entities auflisten (mit Area-Informationen)
+     * Alle Entities auflisten mit Area-Informationen
      */
     public function listEntities($type = 'all')
     {
@@ -190,37 +202,6 @@ class HomeAssistantController extends Controller
 
             $allStates = $response->json();
 
-            // Hole Area-Informationen
-            $areas = $this->getAreas();
-            $devices = $this->getDevices();
-            $entityRegistry = $this->getEntityRegistry();
-
-            // Erstelle Mappings
-            $areaMap = [];
-            foreach ($areas as $area) {
-                $areaMap[$area['area_id']] = $area['name'];
-            }
-
-            $deviceAreaMap = [];
-            foreach ($devices as $device) {
-                if (isset($device['area_id']) && $device['area_id']) {
-                    $deviceAreaMap[$device['id']] = $device['area_id'];
-                }
-            }
-
-            $entityDeviceMap = [];
-            $entityAreaMap = [];
-            foreach ($entityRegistry as $entity) {
-                // Direkte Area-Zuordnung
-                if (isset($entity['area_id']) && $entity['area_id']) {
-                    $entityAreaMap[$entity['entity_id']] = $entity['area_id'];
-                }
-                // Device-Zuordnung
-                if (isset($entity['device_id']) && $entity['device_id']) {
-                    $entityDeviceMap[$entity['entity_id']] = $entity['device_id'];
-                }
-            }
-
             // Filtere Entities
             if ($type === 'all' || empty($type)) {
                 $entities = $allStates;
@@ -230,33 +211,30 @@ class HomeAssistantController extends Controller
                 });
             }
 
-            // Füge Area-Information zu jeder Entity hinzu
+            // Sammle einzigartige Area-Namen
+            $uniqueAreas = [];
+
+            // Hole Area für jede Entity über Template API
             foreach ($entities as &$entity) {
                 $entityId = $entity['entity_id'];
-                $areaName = null;
-
-                // Prüfe direkte Area-Zuordnung
-                if (isset($entityAreaMap[$entityId])) {
-                    $areaId = $entityAreaMap[$entityId];
-                    $areaName = $areaMap[$areaId] ?? null;
-                }
-                // Prüfe Area über Device
-                elseif (isset($entityDeviceMap[$entityId])) {
-                    $deviceId = $entityDeviceMap[$entityId];
-                    if (isset($deviceAreaMap[$deviceId])) {
-                        $areaId = $deviceAreaMap[$deviceId];
-                        $areaName = $areaMap[$areaId] ?? null;
-                    }
-                }
+                $areaName = $this->getEntityArea($entityId);
 
                 $entity['area_name'] = $areaName;
+
+                // Sammle Area-Namen für Filter
+                if ($areaName && !in_array($areaName, $uniqueAreas)) {
+                    $uniqueAreas[] = $areaName;
+                }
             }
+
+            // Sortiere Areas alphabetisch
+            sort($uniqueAreas);
 
             return response()->json([
                 'success' => true,
                 'entities' => array_values($entities),
-                'count' => count($entities),
-                'areas' => array_values($areaMap) // Für Area-Filter
+                'areas' => $uniqueAreas,
+                'count' => count($entities)
             ]);
 
         } catch (\Exception $e) {
@@ -277,7 +255,7 @@ class HomeAssistantController extends Controller
 
         if ($responseData['success']) {
             $switches = $responseData['entities'];
-            $areas = $responseData['areas'] ?? [];
+            $areas = $responseData['areas'];
         } else {
             $switches = [];
             $areas = [];
