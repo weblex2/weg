@@ -35,11 +35,11 @@
                                 </button>
                                 <button onclick="filterByType('sensor')"
                                     class="w-full px-4 py-2 text-left transition-colors dropdown-item hover:bg-gray-100">
-                                    <i class="mr-2 fas fa-thermometer-half"></i> Sensoren
+                                    <i class="mr-2 fas fa-gauge"></i> Sensoren
                                 </button>
                                 <button onclick="filterByType('climate')"
                                     class="w-full px-4 py-2 text-left transition-colors dropdown-item hover:bg-gray-100">
-                                    <i class="mr-2 fas fa-temperature-high"></i> Klima
+                                    <i class="mr-2 fas fa-temperature-half"></i> Klima
                                 </button>
                                 <button onclick="filterByType('cover')"
                                     class="w-full px-4 py-2 text-left transition-colors dropdown-item hover:bg-gray-100">
@@ -61,10 +61,55 @@
                         draggable="true" data-entity-id="{{ $switch['entity_id'] }}"
                         data-friendly-name="{{ $switch['attributes']['friendly_name'] ?? $switch['entity_id'] }}"
                         data-state="{{ $switch['state'] }}" ondragstart="handleDragStart(event)">
-                        <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-3">
+                            <div class="flex items-center justify-center flex-shrink-0 w-8 h-8 text-gray-600">
+                                @php
+                                    $entityId = $switch['entity_id'];
+                                    $icon = 'fa-question-circle';
+                                    $iconColor = 'text-gray-600';
+
+                                    if (str_starts_with($entityId, 'switch.')) {
+                                        $icon = 'fa-toggle-on';
+                                        $iconColor = 'text-blue-600';
+                                    } elseif (str_starts_with($entityId, 'light.')) {
+                                        $icon = 'fa-lightbulb';
+                                        $iconColor = 'text-yellow-500';
+                                    } elseif (str_starts_with($entityId, 'sensor.')) {
+                                        $icon = 'fa-gauge';
+                                        $iconColor = 'text-green-600';
+                                    } elseif (str_starts_with($entityId, 'climate.')) {
+                                        $icon = 'fa-temperature-half';
+                                        $iconColor = 'text-red-500';
+                                    } elseif (str_starts_with($entityId, 'cover.')) {
+                                        $icon = 'fa-window-maximize';
+                                        $iconColor = 'text-indigo-600';
+                                    } elseif (str_starts_with($entityId, 'media_player.')) {
+                                        $icon = 'fa-tv';
+                                        $iconColor = 'text-purple-600';
+                                    } elseif (str_starts_with($entityId, 'binary_sensor.')) {
+                                        $icon = 'fa-door-open';
+                                        $iconColor = 'text-orange-600';
+                                    } elseif (str_starts_with($entityId, 'camera.')) {
+                                        $icon = 'fa-camera';
+                                        $iconColor = 'text-pink-600';
+                                    } elseif (str_starts_with($entityId, 'lock.')) {
+                                        $icon = 'fa-lock';
+                                        $iconColor = 'text-gray-700';
+                                    } elseif (str_starts_with($entityId, 'fan.')) {
+                                        $icon = 'fa-fan';
+                                        $iconColor = 'text-cyan-600';
+                                    }
+                                @endphp
+                                <i class="fas {{ $icon }} {{ $iconColor }} text-lg"></i>
+                            </div>
                             <div class="flex-1 min-w-0">
                                 <p class="text-sm font-semibold truncate">
                                     {{ $switch['attributes']['friendly_name'] ?? $switch['entity_id'] }}</p>
+                                @if (isset($switch['area_name']) && $switch['area_name'])
+                                    <p class="text-xs text-blue-600 truncate">
+                                        <i class="fas fa-map-marker-alt"></i> {{ $switch['area_name'] }}
+                                    </p>
+                                @endif
                                 <p class="text-xs text-gray-500 truncate">{{ $switch['entity_id'] }}</p>
                             </div>
                             <i class="flex-shrink-0 text-gray-400 fas fa-grip-vertical"></i>
@@ -76,8 +121,14 @@
 
         <!-- Hauptbereich für Dashboard -->
         <div class="flex flex-col flex-1 bg-gray-50">
-            <div class="p-4 bg-white border-b border-gray-300">
+            <div class="flex items-center justify-between p-4 bg-white border-b border-gray-300">
                 <h1 class="text-2xl font-bold text-gray-800">Mein Dashboard</h1>
+
+                <button onclick="saveDashboard()" id="save-button"
+                    class="flex items-center gap-2 px-6 py-2 text-white transition-colors bg-blue-600 rounded-lg hover:bg-blue-700">
+                    <i class="fas fa-save"></i>
+                    <span>Speichern</span>
+                </button>
             </div>
 
             <div class="flex-1 p-6 overflow-y-auto" id="dashboard-area" ondrop="handleDrop(event)"
@@ -119,6 +170,11 @@
     <script>
         let draggedElement = null;
         let currentEntityType = 'all';
+
+        // Lade gespeichertes Dashboard beim Seitenaufruf
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSavedDashboard();
+        });
 
         function toggleDropdown() {
             const dropdown = document.getElementById('entity-type-dropdown');
@@ -229,6 +285,7 @@
             const switchCard = document.createElement('div');
             switchCard.id = switchId;
             switchCard.className = 'dashboard-switch bg-white p-6 rounded-lg shadow-md border border-gray-200 relative';
+            switchCard.dataset.entityId = entityId;
             switchCard.innerHTML = `
                 <button
                     onclick="removeSwitchFromDashboard('${switchId}')"
@@ -323,6 +380,92 @@
                     alert('Verbindungsfehler: ' + error.message);
                     button.style.opacity = '1';
                 });
+        }
+
+        function saveDashboard() {
+            const saveButton = document.getElementById('save-button');
+            const originalContent = saveButton.innerHTML;
+
+            // Zeige Loading-Status
+            saveButton.disabled = true;
+            saveButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Speichern...</span>';
+
+            // Sammle alle Entity-IDs aus dem Dashboard
+            const dashboardItems = document.querySelectorAll('#dashboard-grid .dashboard-switch');
+            const layout = [];
+
+            dashboardItems.forEach(item => {
+                layout.push(item.dataset.entityId);
+            });
+
+            fetch('/homeassistant/dashboard/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        layout: layout,
+                        name: 'Mein Dashboard'
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Zeige Erfolg
+                        saveButton.innerHTML = '<i class="fas fa-check"></i> <span>Gespeichert!</span>';
+                        saveButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                        saveButton.classList.add('bg-green-600');
+
+                        // Reset nach 2 Sekunden
+                        setTimeout(() => {
+                            saveButton.innerHTML = originalContent;
+                            saveButton.classList.remove('bg-green-600');
+                            saveButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                            saveButton.disabled = false;
+                        }, 2000);
+                    } else {
+                        alert('Fehler beim Speichern: ' + (data.error || 'Unbekannter Fehler'));
+                        saveButton.innerHTML = originalContent;
+                        saveButton.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Verbindungsfehler: ' + error.message);
+                    saveButton.innerHTML = originalContent;
+                    saveButton.disabled = false;
+                });
+        }
+
+        function loadSavedDashboard() {
+            @if (isset($savedDashboard) && $savedDashboard)
+                const savedLayout = @json($savedDashboard->layout);
+
+                if (savedLayout && savedLayout.length > 0) {
+                    // Entferne Empty Message
+                    const emptyMsg = document.getElementById('empty-message');
+                    if (emptyMsg) {
+                        emptyMsg.remove();
+                    }
+
+                    // Lade jede Entity und füge sie zum Dashboard hinzu
+                    savedLayout.forEach(entityId => {
+                        fetch('/homeassistant/state/' + encodeURIComponent(entityId))
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    const state = data.state.state;
+                                    const friendlyName = data.state.attributes.friendly_name || entityId;
+                                    addSwitchToDashboard(entityId, friendlyName, state);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error loading entity:', entityId, error);
+                            });
+                    });
+                }
+            @endif
         }
     </script>
 </x-layout>

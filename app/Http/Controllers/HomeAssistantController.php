@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use App\Models\Dashboard;
 
 class HomeAssistantController extends Controller
 {
@@ -12,7 +13,6 @@ class HomeAssistantController extends Controller
 
     public function __construct()
     {
-        // Setze deine Home Assistant URL und Token in .env
         $this->haUrl = env('HA_URL', 'http://homeassistant.local:8123');
         $this->haToken = env('HA_TOKEN');
     }
@@ -107,40 +107,157 @@ class HomeAssistantController extends Controller
     }
 
     /**
-     * Alle Entities auflisten
+     * Alle Areas (Bereiche) abrufen
      */
-    public function listEntities($type = 'all')
+    public function getAreas()
     {
         try {
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->haToken,
                 'Content-Type' => 'application/json',
-            ])->get("{$this->haUrl}/api/states");
+            ])->get("{$this->haUrl}/api/config/area_registry/list");
 
             if ($response->successful()) {
-                $allStates = $response->json();
+                return $response->json();
+            }
 
-                // Wenn 'all' oder kein Parameter, gebe alle Entities zurück
-                if ($type === 'all' || empty($type)) {
-                    $entities = $allStates;
-                } else {
-                    // Filtere nach Typ (z.B. 'switch', 'light', 'sensor', etc.)
-                    $entities = array_filter($allStates, function($entity) use ($type) {
-                        return str_starts_with($entity['entity_id'], $type . '.');
-                    });
+            return [];
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Alle Devices abrufen
+     */
+    public function getDevices()
+    {
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->haToken,
+                'Content-Type' => 'application/json',
+            ])->get("{$this->haUrl}/api/config/device_registry/list");
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            return [];
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Alle Entity Registry Einträge abrufen
+     */
+    public function getEntityRegistry()
+    {
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->haToken,
+                'Content-Type' => 'application/json',
+            ])->get("{$this->haUrl}/api/config/entity_registry/list");
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            return [];
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Alle Entities auflisten (mit Area-Informationen)
+     */
+    public function listEntities($type = 'all')
+    {
+        try {
+            // Hole alle States
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->haToken,
+                'Content-Type' => 'application/json',
+            ])->get("{$this->haUrl}/api/states");
+
+            if (!$response->successful()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Failed to get entities'
+                ], $response->status());
+            }
+
+            $allStates = $response->json();
+
+            // Hole Area-Informationen
+            $areas = $this->getAreas();
+            $devices = $this->getDevices();
+            $entityRegistry = $this->getEntityRegistry();
+
+            // Erstelle Mappings
+            $areaMap = [];
+            foreach ($areas as $area) {
+                $areaMap[$area['area_id']] = $area['name'];
+            }
+
+            $deviceAreaMap = [];
+            foreach ($devices as $device) {
+                if (isset($device['area_id']) && $device['area_id']) {
+                    $deviceAreaMap[$device['id']] = $device['area_id'];
+                }
+            }
+
+            $entityDeviceMap = [];
+            $entityAreaMap = [];
+            foreach ($entityRegistry as $entity) {
+                // Direkte Area-Zuordnung
+                if (isset($entity['area_id']) && $entity['area_id']) {
+                    $entityAreaMap[$entity['entity_id']] = $entity['area_id'];
+                }
+                // Device-Zuordnung
+                if (isset($entity['device_id']) && $entity['device_id']) {
+                    $entityDeviceMap[$entity['entity_id']] = $entity['device_id'];
+                }
+            }
+
+            // Filtere Entities
+            if ($type === 'all' || empty($type)) {
+                $entities = $allStates;
+            } else {
+                $entities = array_filter($allStates, function($entity) use ($type) {
+                    return str_starts_with($entity['entity_id'], $type . '.');
+                });
+            }
+
+            // Füge Area-Information zu jeder Entity hinzu
+            foreach ($entities as &$entity) {
+                $entityId = $entity['entity_id'];
+                $areaName = null;
+
+                // Prüfe direkte Area-Zuordnung
+                if (isset($entityAreaMap[$entityId])) {
+                    $areaId = $entityAreaMap[$entityId];
+                    $areaName = $areaMap[$areaId] ?? null;
+                }
+                // Prüfe Area über Device
+                elseif (isset($entityDeviceMap[$entityId])) {
+                    $deviceId = $entityDeviceMap[$entityId];
+                    if (isset($deviceAreaMap[$deviceId])) {
+                        $areaId = $deviceAreaMap[$deviceId];
+                        $areaName = $areaMap[$areaId] ?? null;
+                    }
                 }
 
-                return response()->json([
-                    'success' => true,
-                    'entities' => array_values($entities),
-                    'count' => count($entities)
-                ]);
+                $entity['area_name'] = $areaName;
             }
 
             return response()->json([
-                'success' => false,
-                'error' => 'Failed to get entities'
-            ], $response->status());
+                'success' => true,
+                'entities' => array_values($entities),
+                'count' => count($entities),
+                'areas' => array_values($areaMap) // Für Area-Filter
+            ]);
 
         } catch (\Exception $e) {
             return response()->json([
@@ -150,21 +267,74 @@ class HomeAssistantController extends Controller
         }
     }
 
-    public function dashboard(){
-        // Für alle Entities: 'all' oder keinen Parameter
-        // Für nur Switches: 'switch'
-        // Für nur Lights: 'light'
-        // etc.
-        $response = $this->listEntities('all'); // Ändere zu 'switch', 'light', etc. wenn gewünscht
+    /**
+     * Dashboard anzeigen
+     */
+    public function dashboard()
+    {
+        $response = $this->listEntities('all');
         $responseData = json_decode($response->getContent(), true);
 
-        // Prüfe ob die Anfrage erfolgreich war
         if ($responseData['success']) {
-            $switches = $responseData['entities']; // Umbenennen zu $entities wäre sinnvoll
+            $switches = $responseData['entities'];
+            $areas = $responseData['areas'] ?? [];
         } else {
             $switches = [];
+            $areas = [];
         }
 
-        return view('homeassistant.dashboard', compact('switches'));
+        // Lade gespeichertes Dashboard
+        $savedDashboard = Dashboard::where('is_active', true)->first();
+
+        return view('homeassistant.dashboard', compact('switches', 'savedDashboard', 'areas'));
+    }
+
+    /**
+     * Dashboard speichern
+     */
+    public function saveDashboard(Request $request)
+    {
+        $validated = $request->validate([
+            'layout' => 'required|array',
+            'name' => 'string|max:255'
+        ]);
+
+        // Hole oder erstelle das aktive Dashboard
+        $dashboard = Dashboard::where('is_active', true)->first();
+
+        if (!$dashboard) {
+            $dashboard = new Dashboard();
+            $dashboard->is_active = true;
+        }
+
+        $dashboard->name = $validated['name'] ?? 'Mein Dashboard';
+        $dashboard->layout = $validated['layout'];
+        $dashboard->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Dashboard gespeichert',
+            'dashboard' => $dashboard
+        ]);
+    }
+
+    /**
+     * Dashboard laden
+     */
+    public function loadDashboard()
+    {
+        $dashboard = Dashboard::where('is_active', true)->first();
+
+        if ($dashboard) {
+            return response()->json([
+                'success' => true,
+                'dashboard' => $dashboard
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Kein Dashboard gefunden'
+        ]);
     }
 }
