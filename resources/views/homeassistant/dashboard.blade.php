@@ -6,9 +6,52 @@
                 <h2 class="mb-3 text-xl font-bold text-gray-800">Verfügbare Geräte</h2>
                 <div class="relative">
                     <input type="text" id="search-input" placeholder="Geräte suchen..."
-                        class="w-full px-3 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        class="w-full px-3 py-2 pl-10 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         onkeyup="filterSwitches()">
                     <i class="absolute text-gray-400 fas fa-search left-3 top-3"></i>
+
+                    <!-- Dropdown Button -->
+                    <div class="absolute right-2 top-2">
+                        <button onclick="toggleDropdown()"
+                            class="px-2 py-1 text-gray-600 hover:text-gray-800 focus:outline-none" id="dropdown-button">
+                            <i class="fas fa-filter"></i>
+                        </button>
+
+                        <!-- Dropdown Menu -->
+                        <div id="entity-type-dropdown"
+                            class="absolute right-0 z-10 hidden w-48 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg">
+                            <div class="py-1">
+                                <button onclick="filterByType('all')"
+                                    class="w-full px-4 py-2 text-left transition-colors dropdown-item hover:bg-gray-100">
+                                    <i class="mr-2 fas fa-list"></i> Alle anzeigen
+                                </button>
+                                <button onclick="filterByType('switch')"
+                                    class="w-full px-4 py-2 text-left transition-colors dropdown-item hover:bg-gray-100">
+                                    <i class="mr-2 fas fa-toggle-on"></i> Switches
+                                </button>
+                                <button onclick="filterByType('light')"
+                                    class="w-full px-4 py-2 text-left transition-colors dropdown-item hover:bg-gray-100">
+                                    <i class="mr-2 fas fa-lightbulb"></i> Lichter
+                                </button>
+                                <button onclick="filterByType('sensor')"
+                                    class="w-full px-4 py-2 text-left transition-colors dropdown-item hover:bg-gray-100">
+                                    <i class="mr-2 fas fa-thermometer-half"></i> Sensoren
+                                </button>
+                                <button onclick="filterByType('climate')"
+                                    class="w-full px-4 py-2 text-left transition-colors dropdown-item hover:bg-gray-100">
+                                    <i class="mr-2 fas fa-temperature-high"></i> Klima
+                                </button>
+                                <button onclick="filterByType('cover')"
+                                    class="w-full px-4 py-2 text-left transition-colors dropdown-item hover:bg-gray-100">
+                                    <i class="mr-2 fas fa-window-maximize"></i> Jalousien
+                                </button>
+                                <button onclick="filterByType('media_player')"
+                                    class="w-full px-4 py-2 text-left transition-colors dropdown-item hover:bg-gray-100">
+                                    <i class="mr-2 fas fa-tv"></i> Media Player
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -18,13 +61,13 @@
                         draggable="true" data-entity-id="{{ $switch['entity_id'] }}"
                         data-friendly-name="{{ $switch['attributes']['friendly_name'] ?? $switch['entity_id'] }}"
                         data-state="{{ $switch['state'] }}" ondragstart="handleDragStart(event)">
-                        <div class="flex items-center justify-between">
-                            <div class="flex-1">
-                                <p class="text-sm font-semibold">
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-semibold truncate">
                                     {{ $switch['attributes']['friendly_name'] ?? $switch['entity_id'] }}</p>
-                                <p class="text-xs text-gray-500">{{ $switch['entity_id'] }}</p>
+                                <p class="text-xs text-gray-500 truncate">{{ $switch['entity_id'] }}</p>
                             </div>
-                            <i class="text-gray-400 fas fa-grip-vertical"></i>
+                            <i class="flex-shrink-0 text-gray-400 fas fa-grip-vertical"></i>
                         </div>
                     </div>
                 @endforeach
@@ -75,6 +118,30 @@
 
     <script>
         let draggedElement = null;
+        let currentEntityType = 'all';
+
+        function toggleDropdown() {
+            const dropdown = document.getElementById('entity-type-dropdown');
+            dropdown.classList.toggle('hidden');
+        }
+
+        // Schließe Dropdown wenn außerhalb geklickt wird
+        document.addEventListener('click', function(event) {
+            const dropdown = document.getElementById('entity-type-dropdown');
+            const button = document.getElementById('dropdown-button');
+
+            if (dropdown && button && !dropdown.contains(event.target) && !button.contains(event.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+
+        function filterByType(type) {
+            currentEntityType = type;
+            const dropdown = document.getElementById('entity-type-dropdown');
+            dropdown.classList.add('hidden');
+
+            filterSwitches();
+        }
 
         function filterSwitches() {
             const searchInput = document.getElementById('search-input').value.toLowerCase();
@@ -84,7 +151,17 @@
                 const friendlyName = switchItem.dataset.friendlyName.toLowerCase();
                 const entityId = switchItem.dataset.entityId.toLowerCase();
 
-                if (friendlyName.includes(searchInput) || entityId.includes(searchInput)) {
+                // Text-Filter
+                const matchesSearch = friendlyName.includes(searchInput) || entityId.includes(searchInput);
+
+                // Entity-Typ-Filter
+                let matchesType = true;
+                if (currentEntityType !== 'all') {
+                    matchesType = entityId.startsWith(currentEntityType + '.');
+                }
+
+                // Zeige nur wenn beide Filter zutreffen
+                if (matchesSearch && matchesType) {
                     switchItem.style.display = '';
                 } else {
                     switchItem.style.display = 'none';
