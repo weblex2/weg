@@ -28,6 +28,11 @@
                                     class="w-full px-4 py-2 text-left transition-colors dropdown-item hover:bg-gray-100">
                                     <i class="mr-2 fas fa-list"></i> Alle Typen
                                 </button>
+                                <button onclick="filterByType('areas')"
+                                    class="w-full px-4 py-2 text-left transition-colors dropdown-item hover:bg-gray-100">
+                                    <i class="mr-2 fas fa-map-marker-alt"></i> Bereiche
+                                </button>
+                                <div class="my-1 border-t border-gray-200"></div>
                                 <button onclick="filterByType('switch')"
                                     class="w-full px-4 py-2 text-left transition-colors dropdown-item hover:bg-gray-100">
                                     <i class="mr-2 fas fa-toggle-on"></i> Switches
@@ -87,68 +92,98 @@
             </div>
 
             <div class="flex-1 p-4 space-y-3 overflow-y-auto" id="sidebar-switches">
-                @foreach ($switches as $switch)
-                    <div class="p-3 transition-shadow bg-white border rounded shadow-sm cursor-move hover:shadow-md switch-item"
-                        draggable="true" data-entity-id="{{ $switch['entity_id'] }}"
-                        data-friendly-name="{{ $switch['attributes']['friendly_name'] ?? $switch['entity_id'] }}"
-                        data-state="{{ $switch['state'] }}" data-area-name="{{ $switch['area_name'] ?? '' }}"
-                        ondragstart="handleDragStart(event)">
-                        <div class="flex items-center gap-3">
-                            <div class="flex items-center justify-center flex-shrink-0 w-8 h-8 text-gray-600">
-                                @php
-                                    $entityId = $switch['entity_id'];
-                                    $icon = 'fa-question-circle';
-                                    $iconColor = 'text-gray-600';
-
-                                    if (str_starts_with($entityId, 'switch.')) {
-                                        $icon = 'fa-toggle-on';
-                                        $iconColor = 'text-blue-600';
-                                    } elseif (str_starts_with($entityId, 'light.')) {
-                                        $icon = 'fa-lightbulb';
-                                        $iconColor = 'text-yellow-500';
-                                    } elseif (str_starts_with($entityId, 'sensor.')) {
-                                        $icon = 'fa-gauge';
-                                        $iconColor = 'text-green-600';
-                                    } elseif (str_starts_with($entityId, 'climate.')) {
-                                        $icon = 'fa-temperature-half';
-                                        $iconColor = 'text-red-500';
-                                    } elseif (str_starts_with($entityId, 'cover.')) {
-                                        $icon = 'fa-window-maximize';
-                                        $iconColor = 'text-indigo-600';
-                                    } elseif (str_starts_with($entityId, 'media_player.')) {
-                                        $icon = 'fa-tv';
-                                        $iconColor = 'text-purple-600';
-                                    } elseif (str_starts_with($entityId, 'binary_sensor.')) {
-                                        $icon = 'fa-door-open';
-                                        $iconColor = 'text-orange-600';
-                                    } elseif (str_starts_with($entityId, 'camera.')) {
-                                        $icon = 'fa-camera';
-                                        $iconColor = 'text-pink-600';
-                                    } elseif (str_starts_with($entityId, 'lock.')) {
-                                        $icon = 'fa-lock';
-                                        $iconColor = 'text-gray-700';
-                                    } elseif (str_starts_with($entityId, 'fan.')) {
-                                        $icon = 'fa-fan';
-                                        $iconColor = 'text-cyan-600';
-                                    }
-                                @endphp
-                                <i class="fas {{ $icon }} {{ $iconColor }} text-lg"></i>
+                <!-- Bereiche Liste -->
+                <div id="areas-list" style="display: none;">
+                    @if (isset($areasWithCount) && count($areasWithCount) > 0)
+                        @foreach ($areasWithCount as $areaData)
+                            <div class="p-3 transition-shadow bg-white border rounded shadow-sm cursor-pointer area-item-card hover:shadow-md"
+                                onclick="filterByArea('{{ $areaData['name'] }}')">
+                                <div class="flex items-center gap-3">
+                                    <div
+                                        class="flex items-center justify-center flex-shrink-0 w-10 h-10 text-white bg-blue-500 rounded-lg">
+                                        <i class="text-xl fas fa-map-marker-alt"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-semibold truncate">{{ $areaData['name'] }}</p>
+                                        <p class="text-xs text-gray-500">{{ $areaData['device_count'] }} Geräte</p>
+                                    </div>
+                                    <i class="flex-shrink-0 text-gray-400 fas fa-chevron-right"></i>
+                                </div>
                             </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-sm font-semibold truncate">
-                                    {{ $switch['attributes']['friendly_name'] ?? $switch['entity_id'] }}
-                                </p>
-                                @if (isset($switch['area_name']) && $switch['area_name'])
-                                    <p class="text-xs text-blue-600 truncate">
-                                        <i class="fas fa-map-marker-alt"></i> {{ $switch['area_name'] }}
-                                    </p>
-                                @endif
-                                <p class="text-xs text-gray-500 truncate">{{ $switch['entity_id'] }}</p>
-                            </div>
-                            <i class="flex-shrink-0 text-gray-400 fas fa-grip-vertical"></i>
+                        @endforeach
+                    @else
+                        <div class="p-6 text-center text-gray-400">
+                            <i class="mb-2 text-3xl fas fa-map-marker-alt"></i>
+                            <p>Keine Bereiche gefunden</p>
                         </div>
-                    </div>
-                @endforeach
+                    @endif
+                </div>
+
+                <!-- Geräte Liste -->
+                <div id="devices-list">
+                    @foreach ($switches as $switch)
+                        <div class="p-3 transition-shadow bg-white border rounded shadow-sm cursor-move hover:shadow-md switch-item"
+                            draggable="true" data-entity-id="{{ $switch['entity_id'] }}"
+                            data-friendly-name="{{ $switch['attributes']['friendly_name'] ?? $switch['entity_id'] }}"
+                            data-state="{{ $switch['state'] }}" data-area-name="{{ $switch['area_name'] ?? '' }}"
+                            ondragstart="handleDragStart(event)">
+                            <div class="flex items-center gap-3">
+                                <div class="flex items-center justify-center flex-shrink-0 w-8 h-8 text-gray-600">
+                                    @php
+                                        $entityId = $switch['entity_id'];
+                                        $icon = 'fa-question-circle';
+                                        $iconColor = 'text-gray-600';
+
+                                        if (str_starts_with($entityId, 'switch.')) {
+                                            $icon = 'fa-toggle-on';
+                                            $iconColor = 'text-blue-600';
+                                        } elseif (str_starts_with($entityId, 'light.')) {
+                                            $icon = 'fa-lightbulb';
+                                            $iconColor = 'text-yellow-500';
+                                        } elseif (str_starts_with($entityId, 'sensor.')) {
+                                            $icon = 'fa-gauge';
+                                            $iconColor = 'text-green-600';
+                                        } elseif (str_starts_with($entityId, 'climate.')) {
+                                            $icon = 'fa-temperature-half';
+                                            $iconColor = 'text-red-500';
+                                        } elseif (str_starts_with($entityId, 'cover.')) {
+                                            $icon = 'fa-window-maximize';
+                                            $iconColor = 'text-indigo-600';
+                                        } elseif (str_starts_with($entityId, 'media_player.')) {
+                                            $icon = 'fa-tv';
+                                            $iconColor = 'text-purple-600';
+                                        } elseif (str_starts_with($entityId, 'binary_sensor.')) {
+                                            $icon = 'fa-door-open';
+                                            $iconColor = 'text-orange-600';
+                                        } elseif (str_starts_with($entityId, 'camera.')) {
+                                            $icon = 'fa-camera';
+                                            $iconColor = 'text-pink-600';
+                                        } elseif (str_starts_with($entityId, 'lock.')) {
+                                            $icon = 'fa-lock';
+                                            $iconColor = 'text-gray-700';
+                                        } elseif (str_starts_with($entityId, 'fan.')) {
+                                            $icon = 'fa-fan';
+                                            $iconColor = 'text-cyan-600';
+                                        }
+                                    @endphp
+                                    <i class="fas {{ $icon }} {{ $iconColor }} text-lg"></i>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-semibold truncate">
+                                        {{ $switch['attributes']['friendly_name'] ?? $switch['entity_id'] }}
+                                    </p>
+                                    @if (isset($switch['area_name']) && $switch['area_name'])
+                                        <p class="text-xs text-blue-600 truncate">
+                                            <i class="fas fa-map-marker-alt"></i> {{ $switch['area_name'] }}
+                                        </p>
+                                    @endif
+                                    <p class="text-xs text-gray-500 truncate">{{ $switch['entity_id'] }}</p>
+                                </div>
+                                <i class="flex-shrink-0 text-gray-400 fas fa-grip-vertical"></i>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
             </div>
         </div>
 
@@ -241,7 +276,24 @@
             currentEntityType = type;
             const dropdown = document.getElementById('entity-type-dropdown');
             dropdown.classList.add('hidden');
-            filterSwitches();
+
+            const areasList = document.getElementById('areas-list');
+            const devicesList = document.getElementById('devices-list');
+
+            if (type === 'areas') {
+                // Zeige Bereiche, verstecke Geräte
+                areasList.style.display = 'block';
+                devicesList.style.display = 'none';
+
+                // Setze Area-Filter zurück
+                currentArea = 'all';
+                document.getElementById('selected-area-text').textContent = 'Alle Bereiche';
+            } else {
+                // Zeige Geräte, verstecke Bereiche
+                areasList.style.display = 'none';
+                devicesList.style.display = 'block';
+                filterSwitches();
+            }
         }
 
         function filterByArea(area) {
@@ -251,6 +303,13 @@
 
             dropdown.classList.add('hidden');
             selectedText.textContent = area === 'all' ? 'Alle Bereiche' : area;
+
+            // Wenn wir in der Bereiche-Ansicht sind, wechsle zu Geräten
+            if (currentEntityType === 'areas') {
+                currentEntityType = 'all';
+                document.getElementById('areas-list').style.display = 'none';
+                document.getElementById('devices-list').style.display = 'block';
+            }
 
             filterSwitches();
         }
@@ -343,30 +402,96 @@
             switchCard.id = switchId;
             switchCard.className = 'dashboard-switch bg-white p-6 rounded-lg shadow-md border border-gray-200 relative';
             switchCard.dataset.entityId = entityId;
-            switchCard.innerHTML = `
-                <button
-                    onclick="removeSwitchFromDashboard('${switchId}')"
-                    class="absolute text-red-500 remove-btn top-2 right-2 hover:text-red-700"
-                >
-                    <i class="fas fa-times"></i>
-                </button>
 
-                <div class="text-center">
-                    <h3 class="mb-2 text-lg font-bold">${friendlyName}</h3>
-                    <p class="mb-4 text-sm text-gray-500">${entityId}</p>
+            // Prüfe ob es ein Licht ist
+            const isLight = entityId.startsWith('light.');
 
+            if (isLight) {
+                // Erweiterte Licht-Steuerung
+                switchCard.innerHTML = `
                     <button
-                        onclick="toggleSwitch('${entityId}', '${switchId}')"
-                        class="w-full py-3 transition-colors cursor-pointer toggle-btn hover:opacity-80"
+                        onclick="removeSwitchFromDashboard('${switchId}')"
+                        class="absolute text-red-500 remove-btn top-2 right-2 hover:text-red-700"
                     >
-                        ${state === 'off'
-                            ? '<i class="text-5xl text-gray-400 fas fa-toggle-off"></i>'
-                            : '<i class="text-5xl text-blue-500 fas fa-toggle-on"></i>'}
+                        <i class="fas fa-times"></i>
                     </button>
 
-                    <p class="mt-2 text-sm">Status: <span class="font-semibold status-text">${state}</span></p>
-                </div>
-            `;
+                    <div class="text-center">
+                        <h3 class="mb-2 text-lg font-bold">${friendlyName}</h3>
+                        <p class="mb-4 text-sm text-gray-500">${entityId}</p>
+
+                        <button
+                            onclick="toggleSwitch('${entityId}', '${switchId}')"
+                            class="w-full py-3 mb-4 transition-colors cursor-pointer toggle-btn hover:opacity-80"
+                        >
+                            ${state === 'off'
+                                ? '<i class="text-5xl text-gray-400 fas fa-lightbulb"></i>'
+                                : '<i class="text-5xl text-yellow-500 fas fa-lightbulb"></i>'}
+                        </button>
+
+                        <p class="mb-3 text-sm">Status: <span class="font-semibold status-text">${state}</span></p>
+
+                        <!-- Helligkeitsregler -->
+                        <div class="mb-3 brightness-control" style="display: ${state === 'on' ? 'block' : 'none'}">
+                            <label class="block mb-1 text-xs text-gray-600">
+                                <i class="fas fa-sun"></i> Helligkeit: <span class="brightness-value">0</span>%
+                            </label>
+                            <input type="range" min="1" max="255" value="128"
+                                class="w-full brightness-slider"
+                                onchange="setBrightness('${entityId}', '${switchId}', this.value)">
+                        </div>
+
+                        <!-- Farbtemperatur -->
+                        <div class="mb-3 color-temp-control" style="display: ${state === 'on' ? 'block' : 'none'}">
+                            <label class="block mb-1 text-xs text-gray-600">
+                                <i class="fas fa-temperature-half"></i> Farbtemperatur: <span class="color-temp-value">0</span>K
+                            </label>
+                            <input type="range" min="2000" max="6535" value="4000"
+                                class="w-full color-temp-slider"
+                                onchange="setColorTemp('${entityId}', '${switchId}', this.value)">
+                        </div>
+
+                        <!-- RGB Farbauswahl -->
+                        <div class="color-picker-control" style="display: ${state === 'on' ? 'block' : 'none'}">
+                            <label class="block mb-1 text-xs text-gray-600">
+                                <i class="fas fa-palette"></i> Farbe
+                            </label>
+                            <input type="color"
+                                class="w-full h-10 border border-gray-300 rounded cursor-pointer color-picker"
+                                onchange="setColor('${entityId}', '${switchId}', this.value)">
+                        </div>
+                    </div>
+                `;
+
+                // Lade aktuelle Werte
+                setTimeout(() => updateLightControls(entityId, switchId), 100);
+            } else {
+                // Standard Switch/Toggle
+                switchCard.innerHTML = `
+                    <button
+                        onclick="removeSwitchFromDashboard('${switchId}')"
+                        class="absolute text-red-500 remove-btn top-2 right-2 hover:text-red-700"
+                    >
+                        <i class="fas fa-times"></i>
+                    </button>
+
+                    <div class="text-center">
+                        <h3 class="mb-2 text-lg font-bold">${friendlyName}</h3>
+                        <p class="mb-4 text-sm text-gray-500">${entityId}</p>
+
+                        <button
+                            onclick="toggleSwitch('${entityId}', '${switchId}')"
+                            class="w-full py-3 transition-colors cursor-pointer toggle-btn hover:opacity-80"
+                        >
+                            ${state === 'off'
+                                ? '<i class="text-5xl text-gray-400 fas fa-toggle-off"></i>'
+                                : '<i class="text-5xl text-blue-500 fas fa-toggle-on"></i>'}
+                        </button>
+
+                        <p class="mt-2 text-sm">Status: <span class="font-semibold status-text">${state}</span></p>
+                    </div>
+                `;
+            }
 
             grid.appendChild(switchCard);
         }
@@ -393,6 +518,9 @@
             const button = container.querySelector('.toggle-btn');
             const icon = button.querySelector('i');
             const statusText = container.querySelector('.status-text');
+            const brightnessControl = container.querySelector('.brightness-control');
+            const colorTempControl = container.querySelector('.color-temp-control');
+            const colorPickerControl = container.querySelector('.color-picker-control');
 
             button.style.opacity = '0.5';
 
@@ -411,11 +539,29 @@
                             .then(stateData => {
                                 if (stateData.success) {
                                     const newState = stateData.state.state;
+                                    const isLight = entityId.startsWith('light.');
 
-                                    if (newState === 'off') {
-                                        icon.className = 'text-gray-400 fas fa-toggle-off text-5xl';
+                                    if (isLight) {
+                                        // Update Licht Icon
+                                        if (newState === 'off') {
+                                            icon.className = 'text-gray-400 fas fa-lightbulb text-5xl';
+                                            if (brightnessControl) brightnessControl.style.display = 'none';
+                                            if (colorTempControl) colorTempControl.style.display = 'none';
+                                            if (colorPickerControl) colorPickerControl.style.display = 'none';
+                                        } else {
+                                            icon.className = 'text-yellow-500 fas fa-lightbulb text-5xl';
+                                            if (brightnessControl) brightnessControl.style.display = 'block';
+                                            if (colorTempControl) colorTempControl.style.display = 'block';
+                                            if (colorPickerControl) colorPickerControl.style.display = 'block';
+                                            updateLightControls(entityId, containerId);
+                                        }
                                     } else {
-                                        icon.className = 'text-blue-500 fas fa-toggle-on text-5xl';
+                                        // Update Switch Icon
+                                        if (newState === 'off') {
+                                            icon.className = 'text-gray-400 fas fa-toggle-off text-5xl';
+                                        } else {
+                                            icon.className = 'text-blue-500 fas fa-toggle-on text-5xl';
+                                        }
                                     }
 
                                     statusText.textContent = newState;
@@ -431,6 +577,134 @@
                     console.error('Error:', error);
                     alert('Verbindungsfehler: ' + error.message);
                     button.style.opacity = '1';
+                });
+        }
+
+        function updateLightControls(entityId, containerId) {
+            fetch('/homeassistant/state/' + encodeURIComponent(entityId))
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.state.state === 'on') {
+                        const container = document.getElementById(containerId);
+                        const attributes = data.state.attributes;
+
+                        // Helligkeit
+                        if (attributes.brightness !== undefined) {
+                            const brightnessSlider = container.querySelector('.brightness-slider');
+                            const brightnessValue = container.querySelector('.brightness-value');
+                            if (brightnessSlider) {
+                                brightnessSlider.value = attributes.brightness;
+                                const percent = Math.round((attributes.brightness / 255) * 100);
+                                if (brightnessValue) brightnessValue.textContent = percent;
+                            }
+                        }
+
+                        // Farbtemperatur
+                        if (attributes.color_temp_kelvin !== undefined) {
+                            const colorTempSlider = container.querySelector('.color-temp-slider');
+                            const colorTempValue = container.querySelector('.color-temp-value');
+                            if (colorTempSlider) {
+                                colorTempSlider.value = attributes.color_temp_kelvin;
+                                if (colorTempValue) colorTempValue.textContent = attributes.color_temp_kelvin;
+                            }
+                        }
+
+                        // RGB Farbe
+                        if (attributes.rgb_color !== undefined) {
+                            const colorPicker = container.querySelector('.color-picker');
+                            if (colorPicker) {
+                                const [r, g, b] = attributes.rgb_color;
+                                const hexColor = '#' + [r, g, b].map(x => {
+                                    const hex = x.toString(16);
+                                    return hex.length === 1 ? '0' + hex : hex;
+                                }).join('');
+                                colorPicker.value = hexColor;
+                            }
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading light controls:', error);
+                });
+        }
+
+        function setBrightness(entityId, containerId, brightness) {
+            const container = document.getElementById(containerId);
+            const brightnessValue = container.querySelector('.brightness-value');
+            const percent = Math.round((brightness / 255) * 100);
+            if (brightnessValue) brightnessValue.textContent = percent;
+
+            fetch('/homeassistant/light/brightness/' + encodeURIComponent(entityId), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        brightness: parseInt(brightness)
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        console.error('Failed to set brightness:', data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
+        function setColorTemp(entityId, containerId, kelvin) {
+            const container = document.getElementById(containerId);
+            const colorTempValue = container.querySelector('.color-temp-value');
+            if (colorTempValue) colorTempValue.textContent = kelvin;
+
+            fetch('/homeassistant/light/color-temp/' + encodeURIComponent(entityId), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        kelvin: parseInt(kelvin)
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        console.error('Failed to set color temp:', data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
+        function setColor(entityId, containerId, hexColor) {
+            // Konvertiere Hex zu RGB
+            const r = parseInt(hexColor.substr(1, 2), 16);
+            const g = parseInt(hexColor.substr(3, 2), 16);
+            const b = parseInt(hexColor.substr(5, 2), 16);
+
+            fetch('/homeassistant/light/color/' + encodeURIComponent(entityId), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        rgb_color: [r, g, b]
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        console.error('Failed to set color:', data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
                 });
         }
 

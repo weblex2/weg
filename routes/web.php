@@ -36,5 +36,9 @@ Route::prefix('homeassistant')->group(function () {
     Route::get('dashboard', [App\Http\Controllers\HomeAssistantController::class, 'dashboard']);
     Route::post('/homeassistant/toggle/{entityId}', [HomeAssistantController::class, 'toggle']);
     Route::get('/homeassistant/state/{entityId}', [HomeAssistantController::class, 'getState']);
+    // Light Controls
+    Route::post('light/brightness/{entityId}', [HomeAssistantController::class, 'setBrightness']);
+    Route::post('light/color-temp/{entityId}', [HomeAssistantController::class, 'setColorTemp']);
+    Route::post('light/color/{entityId}', [HomeAssistantController::class, 'setColor']);
 
 });

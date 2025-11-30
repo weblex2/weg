@@ -18,27 +18,154 @@ class HomeAssistantController extends Controller
     }
 
     /**
-     * Steckdose einschalten
+     * Ermittle die Domain aus der Entity ID
+     */
+    private function getDomain($entityId)
+    {
+        $parts = explode('.', $entityId);
+        return $parts[0] ?? 'switch';
+    }
+
+    /**
+     * Entity einschalten
      */
     public function turnOn($entityId)
     {
-        return $this->callService('turn_on', $entityId);
+        $domain = $this->getDomain($entityId);
+        return $this->callService('turn_on', $entityId, $domain);
     }
 
     /**
-     * Steckdose ausschalten
+     * Entity ausschalten
      */
     public function turnOff($entityId)
     {
-        return $this->callService('turn_off', $entityId);
+        $domain = $this->getDomain($entityId);
+        return $this->callService('turn_off', $entityId, $domain);
     }
 
     /**
-     * Steckdose togglen (umschalten)
+     * Entity togglen (umschalten)
      */
     public function toggle($entityId)
     {
-        return $this->callService('toggle', $entityId);
+        $domain = $this->getDomain($entityId);
+        return $this->callService('toggle', $entityId, $domain);
+    }
+
+    /**
+     * Helligkeit setzen (für Lichter)
+     */
+    public function setBrightness(Request $request, $entityId)
+    {
+        $validated = $request->validate([
+            'brightness' => 'required|integer|min:1|max:255'
+        ]);
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->haToken,
+                'Content-Type' => 'application/json',
+            ])->post("{$this->haUrl}/api/services/light/turn_on", [
+                'entity_id' => $entityId,
+                'brightness' => $validated['brightness']
+            ]);
+
+            if ($response->successful()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Brightness set successfully'
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to set brightness'
+            ], $response->status());
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Farbtemperatur setzen (für Lichter)
+     */
+    public function setColorTemp(Request $request, $entityId)
+    {
+        $validated = $request->validate([
+            'kelvin' => 'required|integer|min:2000|max:6535'
+        ]);
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->haToken,
+                'Content-Type' => 'application/json',
+            ])->post("{$this->haUrl}/api/services/light/turn_on", [
+                'entity_id' => $entityId,
+                'color_temp_kelvin' => $validated['kelvin']
+            ]);
+
+            if ($response->successful()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Color temperature set successfully'
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to set color temperature'
+            ], $response->status());
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * RGB Farbe setzen (für Lichter)
+     */
+    public function setColor(Request $request, $entityId)
+    {
+        $validated = $request->validate([
+            'rgb_color' => 'required|array|size:3',
+            'rgb_color.*' => 'integer|min:0|max:255'
+        ]);
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->haToken,
+                'Content-Type' => 'application/json',
+            ])->post("{$this->haUrl}/api/services/light/turn_on", [
+                'entity_id' => $entityId,
+                'rgb_color' => $validated['rgb_color']
+            ]);
+
+            if ($response->successful()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Color set successfully'
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to set color'
+            ], $response->status());
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -75,13 +202,18 @@ class HomeAssistantController extends Controller
     /**
      * Service aufrufen (Haupt-Funktion)
      */
-    private function callService($service, $entityId)
+    private function callService($service, $entityId, $domain = null)
     {
         try {
+            // Wenn keine Domain übergeben wurde, aus entity_id extrahieren
+            if ($domain === null) {
+                $domain = $this->getDomain($entityId);
+            }
+
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->haToken,
                 'Content-Type' => 'application/json',
-            ])->post("{$this->haUrl}/api/services/switch/{$service}", [
+            ])->post("{$this->haUrl}/api/services/{$domain}/{$service}", [
                 'entity_id' => $entityId
             ]);
 
@@ -95,7 +227,9 @@ class HomeAssistantController extends Controller
 
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to execute service'
+                'error' => 'Failed to execute service',
+                'status' => $response->status(),
+                'body' => $response->body()
             ], $response->status());
 
         } catch (\Exception $e) {
@@ -213,6 +347,7 @@ class HomeAssistantController extends Controller
 
             // Sammle einzigartige Area-Namen
             $uniqueAreas = [];
+            $areaDeviceCount = [];
 
             // Hole Area für jede Entity über Template API
             foreach ($entities as &$entity) {
@@ -224,16 +359,32 @@ class HomeAssistantController extends Controller
                 // Sammle Area-Namen für Filter
                 if ($areaName && !in_array($areaName, $uniqueAreas)) {
                     $uniqueAreas[] = $areaName;
+                    $areaDeviceCount[$areaName] = 0;
+                }
+
+                // Zähle Geräte pro Area
+                if ($areaName) {
+                    $areaDeviceCount[$areaName]++;
                 }
             }
 
             // Sortiere Areas alphabetisch
             sort($uniqueAreas);
 
+            // Erstelle Areas-Array mit Gerätezahl
+            $areasWithCount = [];
+            foreach ($uniqueAreas as $area) {
+                $areasWithCount[] = [
+                    'name' => $area,
+                    'device_count' => $areaDeviceCount[$area] ?? 0
+                ];
+            }
+
             return response()->json([
                 'success' => true,
                 'entities' => array_values($entities),
                 'areas' => $uniqueAreas,
+                'areas_with_count' => $areasWithCount,
                 'count' => count($entities)
             ]);
 
@@ -255,16 +406,18 @@ class HomeAssistantController extends Controller
 
         if ($responseData['success']) {
             $switches = $responseData['entities'];
-            $areas = $responseData['areas'];
+            $areas = $responseData['areas'] ?? [];
+            $areasWithCount = $responseData['areas_with_count'] ?? [];
         } else {
             $switches = [];
             $areas = [];
+            $areasWithCount = [];
         }
 
         // Lade gespeichertes Dashboard
         $savedDashboard = Dashboard::where('is_active', true)->first();
 
-        return view('homeassistant.dashboard', compact('switches', 'savedDashboard', 'areas'));
+        return view('homeassistant.dashboard', compact('switches', 'savedDashboard', 'areas', 'areasWithCount'));
     }
 
     /**
