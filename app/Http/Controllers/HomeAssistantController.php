@@ -107,9 +107,9 @@ class HomeAssistantController extends Controller
     }
 
     /**
-     * Alle Switches auflisten
+     * Alle Entities auflisten
      */
-    public function listSwitches()
+    public function listEntities($type = 'all')
     {
         try {
             $response = Http::withHeaders([
@@ -119,19 +119,27 @@ class HomeAssistantController extends Controller
 
             if ($response->successful()) {
                 $allStates = $response->json();
-                $switches = array_filter($allStates, function($entity) {
-                    return str_starts_with($entity['entity_id'], 'switch.');
-                });
+
+                // Wenn 'all' oder kein Parameter, gebe alle Entities zurück
+                if ($type === 'all' || empty($type)) {
+                    $entities = $allStates;
+                } else {
+                    // Filtere nach Typ (z.B. 'switch', 'light', 'sensor', etc.)
+                    $entities = array_filter($allStates, function($entity) use ($type) {
+                        return str_starts_with($entity['entity_id'], $type . '.');
+                    });
+                }
 
                 return response()->json([
                     'success' => true,
-                    'switches' => array_values($switches)
+                    'entities' => array_values($entities),
+                    'count' => count($entities)
                 ]);
             }
 
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to get switches'
+                'error' => 'Failed to get entities'
             ], $response->status());
 
         } catch (\Exception $e) {
@@ -140,5 +148,23 @@ class HomeAssistantController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    public function dashboard(){
+        // Für alle Entities: 'all' oder keinen Parameter
+        // Für nur Switches: 'switch'
+        // Für nur Lights: 'light'
+        // etc.
+        $response = $this->listEntities('all'); // Ändere zu 'switch', 'light', etc. wenn gewünscht
+        $responseData = json_decode($response->getContent(), true);
+
+        // Prüfe ob die Anfrage erfolgreich war
+        if ($responseData['success']) {
+            $switches = $responseData['entities']; // Umbenennen zu $entities wäre sinnvoll
+        } else {
+            $switches = [];
+        }
+
+        return view('homeassistant.dashboard', compact('switches'));
     }
 }
