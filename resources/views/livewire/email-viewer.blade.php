@@ -2,7 +2,7 @@
         <!-- Linke Spalte: E-Mail-Auswahl -->
         <div class="w-1/3 h-full overflow-y-auto border-r border-gray-200" style="background-color: #86efac;">
             <div class="flex flex-col p-4">
-                <h2 class="mb-4 text-lg font-semibold text-left text-gray-800">E-Mails</h2>
+                <h2 class="mb-4 text-lg font-semibold text-left text-gray-800">123E-Mails</h2>
                 <ul class="w-full space-y-1 text-left">
                     @foreach ($emails as $email)
                         <li>
