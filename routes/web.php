@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\EmailController;
 use App\Http\Controllers\HomeAssistantController;
+use App\Http\Controllers\HomeAssistantWebServiceController;
 
 
 Route::get('/', function () {
@@ -33,12 +34,25 @@ Route::prefix('homeassistant')->group(function () {
     Route::post('turn-on/{entityId}', [App\Http\Controllers\HomeAssistantController::class, 'turnOn']);
     Route::post('turn-off/{entityId}', [App\Http\Controllers\HomeAssistantController::class, 'turnOff']);
     Route::post('toggle/{entityId}', [App\Http\Controllers\HomeAssistantController::class, 'toggle']);
-    Route::get('dashboard', [App\Http\Controllers\HomeAssistantController::class, 'dashboard']);
-    Route::post('/homeassistant/toggle/{entityId}', [HomeAssistantController::class, 'toggle']);
-    Route::get('/homeassistant/state/{entityId}', [HomeAssistantController::class, 'getState']);
+
+    // DUPLIKAT - diese beiden Zeilen kannst du löschen:
+    // Route::post('/homeassistant/toggle/{entityId}', [HomeAssistantController::class, 'toggle']);
+    // Route::get('/homeassistant/state/{entityId}', [HomeAssistantController::class, 'getState']);
+
     // Light Controls
     Route::post('light/brightness/{entityId}', [HomeAssistantController::class, 'setBrightness']);
     Route::post('light/color-temp/{entityId}', [HomeAssistantController::class, 'setColorTemp']);
     Route::post('light/color/{entityId}', [HomeAssistantController::class, 'setColor']);
 
+    // Webservices
+    Route::get('/ws/devices', [HomeAssistantWebServiceController::class, 'listDevices']);
+    Route::get('/ws/entities', [HomeAssistantWebServiceController::class, 'listEntities']);
+    Route::get('/ws/monitor', function () {
+        return view('homeassistant.monitor');
+    });
+    Route::post('/ws/service', [HomeAssistantWebServiceController::class, 'callService']); // ✅ RICHTIG!
+    // DUPLIKAT - diese Zeile löschen:
+    // Route::post('/ws/service', [HomeAssistantWebServiceController::class, 'callService']);
 });
+
+

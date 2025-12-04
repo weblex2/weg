@@ -1,0 +1,576 @@
+/* Home Assistant Monitor Styles */
+
+/* Animations */
+@keyframes highlight {
+    0%, 100% {
+        background: white;
+    }
+    50% {
+        background: #fef3c7;
+    }
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Layout */
+.ha-container {
+    display: flex;
+    height: 100vh;
+}
+
+.ha-sidebar {
+    display: flex;
+    flex-direction: column;
+    background-color: #f3f4f6;
+    border-right: 1px solid #d1d5db;
+    width: 20rem;
+}
+
+.ha-sidebar-header {
+    padding: 1rem;
+    background-color: white;
+    border-bottom: 1px solid #d1d5db;
+}
+
+.ha-sidebar-title {
+    margin-bottom: 0.75rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.ha-sidebar-content {
+    flex: 1;
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+.ha-sidebar-content > * + * {
+    margin-top: 0.75rem;
+}
+
+/* Main Content */
+.ha-main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    background-color: #f9fafb;
+}
+
+.ha-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    background-color: white;
+    border-bottom: 1px solid #d1d5db;
+}
+
+.ha-header-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.ha-header-actions {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.ha-content {
+    flex: 1;
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+/* Status Indicator */
+.ha-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+    background-color: #f9fafb;
+    border-radius: 0.5rem;
+}
+
+.ha-status-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.ha-status-dot {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 9999px;
+}
+
+.ha-status-dot.connected {
+    background-color: #10b981;
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.ha-status-dot.disconnected {
+    background-color: #ef4444;
+}
+
+.ha-status-text {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.ha-device-count {
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+/* Search Input */
+.ha-search-wrapper {
+    position: relative;
+    margin-bottom: 0.75rem;
+}
+
+.ha-search-input {
+    width: 100%;
+    padding: 0.5rem 0.75rem 0.5rem 2.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+}
+
+.ha-search-input:focus {
+    outline: none;
+    ring: 2px;
+    ring-color: #3b82f6;
+}
+
+.ha-search-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 0.75rem;
+    color: #9ca3af;
+}
+
+/* Dropdown */
+.ha-dropdown {
+    position: relative;
+}
+
+.ha-dropdown-button {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    background-color: white;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    transition: background-color 0.15s;
+}
+
+.ha-dropdown-button:hover {
+    background-color: #f9fafb;
+}
+
+.ha-dropdown-button:focus {
+    outline: none;
+    ring: 2px;
+    ring-color: #3b82f6;
+}
+
+.ha-dropdown-menu {
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    margin-top: 0.5rem;
+    background-color: white;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.ha-dropdown-menu.hidden {
+    display: none;
+}
+
+.ha-dropdown-menu-inner {
+    padding: 0.25rem 0;
+}
+
+.ha-dropdown-item {
+    width: 100%;
+    padding: 0.5rem 1rem;
+    text-align: left;
+    transition: background-color 0.15s;
+}
+
+.ha-dropdown-item:hover {
+    background-color: #f3f4f6;
+}
+
+.ha-dropdown-divider {
+    margin: 0.25rem 0;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* Buttons */
+.ha-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    border-radius: 0.5rem;
+    transition: all 0.15s;
+    cursor: pointer;
+    border: none;
+}
+
+.ha-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.ha-button-primary {
+    color: white;
+    background-color: #2563eb;
+}
+
+.ha-button-primary:hover:not(:disabled) {
+    background-color: #1d4ed8;
+}
+
+.ha-button-secondary {
+    color: #374151;
+    background-color: #e5e7eb;
+}
+
+.ha-button-secondary:hover:not(:disabled) {
+    background-color: #d1d5db;
+}
+
+.ha-button-outline {
+    color: #374151;
+    background-color: white;
+    border: 1px solid #d1d5db;
+}
+
+.ha-button-outline:hover:not(:disabled) {
+    background-color: #f9fafb;
+}
+
+.ha-button-success {
+    color: white;
+    background-color: #16a34a;
+}
+
+.ha-button-success:hover:not(:disabled) {
+    background-color: #15803d;
+}
+
+.ha-button-danger {
+    color: white;
+    background-color: #dc2626;
+}
+
+.ha-button-danger:hover:not(:disabled) {
+    background-color: #b91c1c;
+}
+
+.ha-button-gray {
+    color: white;
+    background-color: #4b5563;
+}
+
+.ha-button-gray:hover:not(:disabled) {
+    background-color: #374151;
+}
+
+/* Control Buttons */
+.control-button {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: white;
+    border-radius: 0.5rem;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.control-button:active {
+    transform: scale(0.95);
+}
+
+.control-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.control-button-on {
+    background-color: #16a34a;
+}
+
+.control-button-on:hover:not(:disabled) {
+    background-color: #15803d;
+}
+
+.control-button-off {
+    background-color: #dc2626;
+}
+
+.control-button-off:hover:not(:disabled) {
+    background-color: #b91c1c;
+}
+
+/* Messages */
+.ha-message {
+    padding: 1rem;
+    margin: 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid;
+}
+
+.ha-message.hidden {
+    display: none;
+}
+
+.ha-message-error {
+    color: #991b1b;
+    background-color: #fee2e2;
+    border-color: #fecaca;
+}
+
+.ha-message-success {
+    color: #065f46;
+    background-color: #d1fae5;
+    border-color: #a7f3d0;
+}
+
+/* Device Grid */
+.ha-devices-grid {
+    display: grid;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+@media (min-width: 768px) {
+    .ha-devices-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1024px) {
+    .ha-devices-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1280px) {
+    .ha-devices-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+/* Loading Message */
+.ha-loading {
+    grid-column: 1 / -1;
+    padding: 5rem 0;
+    text-align: center;
+    color: #9ca3af;
+}
+
+.ha-loading-icon {
+    margin-bottom: 1rem;
+    font-size: 2.25rem;
+    animation: spin 1s linear infinite;
+}
+
+.ha-loading-text {
+    font-size: 1.125rem;
+}
+
+/* Device Card */
+.device-card {
+    background-color: white;
+    padding: 1.25rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+    transition: all 0.15s;
+}
+
+.device-card:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.device-updated {
+    animation: highlight 0.5s ease;
+}
+
+.device-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.device-card-info {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    gap: 0.75rem;
+}
+
+.device-card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 1.25rem;
+}
+
+.device-card-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.device-card-title {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #1f2937;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.device-card-subtitle {
+    font-size: 0.75rem;
+    color: #6b7280;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.device-state {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 9999px;
+    text-transform: uppercase;
+}
+
+.device-card-body {
+    padding-top: 0.75rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.device-card-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+    font-size: 0.75rem;
+}
+
+.device-card-label {
+    color: #6b7280;
+}
+
+.device-card-value {
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.device-card-controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* Status Classes */
+.status-on {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.status-off {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.status-unavailable {
+    background-color: #e5e7eb;
+    color: #6b7280;
+}
+
+/* Icon Colors */
+.icon-blue {
+    color: #2563eb;
+}
+
+.icon-yellow {
+    color: #eab308;
+}
+
+.icon-green {
+    color: #16a34a;
+}
+
+.icon-red {
+    color: #dc2626;
+}
+
+.icon-indigo {
+    color: #4f46e5;
+}
+
+.icon-purple {
+    color: #9333ea;
+}
+
+.icon-orange {
+    color: #ea580c;
+}
+
+.icon-pink {
+    color: #db2777;
+}
+
+.icon-gray {
+    color: #374151;
+}
+
+.icon-cyan {
+    color: #06b6d4;
+}
+
+/* Utility Classes */
+.float-right {
+    float: right;
+}
+
+.mt-1 {
+    margin-top: 0.25rem;
+}
+
+.mr-1, .mx-1 {
+    margin-right: 0.25rem;
+}
+
+.mr-2 {
+    margin-right: 0.5rem;
+}
