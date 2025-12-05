@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\EmailController;
 use App\Http\Controllers\HomeAssistantController;
+use App\Http\Controllers\DeployController;
 use App\Http\Controllers\HomeAssistantWebServiceController;
 
 
@@ -50,9 +51,11 @@ Route::prefix('homeassistant')->group(function () {
     Route::get('/ws/monitor', function () {
         return view('homeassistant.monitor');
     });
-    Route::post('/ws/service', [HomeAssistantWebServiceController::class, 'callService']); // ✅ RICHTIG!
-    // DUPLIKAT - diese Zeile löschen:
-    // Route::post('/ws/service', [HomeAssistantWebServiceController::class, 'callService']);
+    Route::post('/ws/service', [HomeAssistantWebServiceController::class, 'callService']);
 });
+
+Route::middleware(['auth'])->group(function () {
+Route::post('/deploy', [DeployController::class, 'deploy'])->name('deploy');
+Route::get('/deploy/status', [DeployController::class, 'status'])->name('deploy.status');
 
 
