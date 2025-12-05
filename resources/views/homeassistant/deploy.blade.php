@@ -39,7 +39,17 @@
                 } else {
                     status.innerHTML = `
                 <div class="alert alert-danger">
-                    ❌ Fehler: ${data.message || data.error}
+                    <strong>❌ Fehler: ${data.message || data.error}</strong>
+                    ${data.error_type ? `<div><small>Type: ${data.error_type}</small></div>` : ''}
+                    ${data.file ? `<div><small>File: ${data.file}:${data.line}</small></div>` : ''}
+                    ${data.debug ? `<details style="margin-top:10px">
+                            <summary>Debug Info</summary>
+                            <pre>${JSON.stringify(data.debug, null, 2)}</pre>
+                        </details>` : ''}
+                    ${data.trace ? `<details style="margin-top:10px">
+                            <summary>Stack Trace</summary>
+                            <pre style="font-size:11px">${data.trace}</pre>
+                        </details>` : ''}
                 </div>
             `;
                 }

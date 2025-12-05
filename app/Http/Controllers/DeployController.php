@@ -23,15 +23,32 @@ class DeployController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Unauthorized'
+                'message' => 'Unauthorized',
+                'debug' => [
+                    'auth_check' => auth()->check(),
+                    'has_token' => !empty($request->header('X-Deploy-Token')),
+                    'user' => auth()->user()?->name ?? 'not logged in'
+                ]
             ], 403);
         }
 
+        // Debug-Informationen sammeln
+        $debugInfo = [
+            'user' => auth()->user()?->name ?? 'guest',
+            'ip' => $request->ip(),
+            'method' => $request->method(),
+            'php_version' => PHP_VERSION,
+            'laravel_version' => app()->version(),
+        ];
+
         try {
-            Log::info('Deploy triggered', [
-                'user' => auth()->user()?->name ?? 'guest',
-                'ip' => $request->ip()
-            ]);
+            Log::info('Deploy triggered', $debugInfo);
+
+            // Welche Methode wird verwendet?
+            $method = $this->detectDeployMethod();
+            $debugInfo['deploy_method'] = $method;
+
+            Log::info('Using deploy method: ' . $method);
 
             // SSH-Methode (wenn SSH-Key vorhanden)
             // $result = $this->deployViaSsh();
@@ -42,21 +59,96 @@ class DeployController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Deploy wurde ausgelöst',
-                'output' => $result
+                'output' => $result,
+                'debug' => $debugInfo
             ]);
 
         } catch (\Exception $e) {
             Log::error('Deploy failed', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
+                'debug' => $debugInfo
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Deploy fehlgeschlagen',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'error_type' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'debug' => $debugInfo,
+                'trace' => config('app.debug') ? $e->getTraceAsString() : 'Enable debug mode for full trace'
             ], 500);
         }
+    }
+
+    /**
+     * Erkennt welche Deploy-Methode verfügbar ist
+     */
+    private function detectDeployMethod(): string
+    {
+        // Umgebungs-abhängige Pfade
+        $flagPath = $this->getDeployFlagPath();
+        $scriptPath = $this->getDeployScriptPath();
+        $sshKeyPath = $this->getSshKeyPath();
+
+        $info = [
+            'os' => PHP_OS,
+            'flag_path' => $flagPath,
+            'script_path' => $scriptPath,
+            'flag_dir_exists' => is_dir(dirname($flagPath)),
+            'flag_dir_writable' => is_writable(dirname($flagPath)),
+            'script_exists' => file_exists($scriptPath),
+            'script_executable' => is_executable($scriptPath),
+            'ssh_key_exists' => file_exists($sshKeyPath),
+        ];
+
+        Log::info('Deploy method detection', $info);
+
+        if ($info['flag_dir_writable']) {
+            return 'flag-file';
+        } elseif ($info['ssh_key_exists']) {
+            return 'ssh';
+        } elseif ($info['script_executable']) {
+            return 'direct';
+        }
+
+        throw new \Exception('Keine Deploy-Methode verfügbar. Info: ' . json_encode($info));
+    }
+
+    /**
+     * Gibt den Pfad zur Deploy-Flag-Datei zurück
+     */
+    private function getDeployFlagPath(): string
+    {
+        // Lokales Entwicklungs-Override (Windows-Check)
+        if (PHP_OS_FAMILY === 'Windows') {
+            return storage_path('app/deploy.flag');
+        }
+
+        return env('DEPLOY_FLAG_PATH', '/homeassistant/laravel/deploy.flag');
+    }
+
+    /**
+     * Gibt den Pfad zum Deploy-Script zurück
+     */
+    private function getDeployScriptPath(): string
+    {
+        // Lokales Entwicklungs-Override (Windows-Check)
+        if (PHP_OS_FAMILY === 'Windows') {
+            return base_path('deploy-local.bat'); // oder .sh wenn Git Bash
+        }
+
+        return env('DEPLOY_SCRIPT_PATH', '/homeassistant/laravel/deploy.sh');
+    }
+
+    /**
+     * Gibt den Pfad zum SSH-Key zurück
+     */
+    private function getSshKeyPath(): string
+    {
+        return env('DEPLOY_SSH_KEY_PATH', '/root/.ssh/id_rsa');
     }
 
     /**
@@ -64,11 +156,19 @@ class DeployController extends Controller
      */
     private function deployViaFlagFile(): string
     {
-        $flagFile = '/homeassistant/laravel/deploy.flag';
+        $flagFile = $this->getDeployFlagPath();
+
+        // Verzeichnis erstellen falls es nicht existiert
+        $dir = dirname($flagFile);
+        if (!is_dir($dir)) {
+            if (!mkdir($dir, 0755, true)) {
+                throw new \Exception("Konnte Verzeichnis nicht erstellen: $dir");
+            }
+        }
 
         // Flag-File erstellen
         if (file_put_contents($flagFile, date('Y-m-d H:i:s') . "\n" . auth()->user()?->name ?? 'system') === false) {
-            throw new \Exception('Konnte Flag-File nicht erstellen');
+            throw new \Exception('Konnte Flag-File nicht erstellen: ' . $flagFile);
         }
 
         return 'Deploy-Flag wurde gesetzt. Watcher wird das Script ausführen.';
@@ -79,12 +179,16 @@ class DeployController extends Controller
      */
     private function deployViaSsh(): string
     {
+        $sshKey = $this->getSshKeyPath();
+        $scriptPath = $this->getDeployScriptPath();
+        $sshHost = env('DEPLOY_SSH_HOST', 'root@172.17.0.1');
+
         $process = new Process([
             'ssh',
-            '-i', '/root/.ssh/id_rsa',
+            '-i', $sshKey,
             '-o', 'StrictHostKeyChecking=no',
-            'root@172.17.0.1', // Docker Host IP
-            '/homeassistant/laravel/deploy.sh'
+            $sshHost,
+            $scriptPath
         ]);
 
         $process->setTimeout(300); // 5 Minuten Timeout
@@ -102,7 +206,7 @@ class DeployController extends Controller
      */
     private function deployViaDirect(): string
     {
-        $scriptPath = '/homeassistant/laravel/deploy.sh';
+        $scriptPath = $this->getDeployScriptPath();
 
         if (!file_exists($scriptPath)) {
             throw new \Exception('Deploy-Script nicht gefunden: ' . $scriptPath);
