@@ -57,4 +57,7 @@ Route::prefix('homeassistant')->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::post('/deploy', [DeployController::class, 'deploy'])->name('deploy');
     Route::get('/deploy/status', [DeployController::class, 'status'])->name('deploy.status');
+    Route::get('/deploy-page', function () {
+    return view('homeassistant.deploy');
+    })->name('deploy.page');
 });
