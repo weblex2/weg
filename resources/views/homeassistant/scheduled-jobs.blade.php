@@ -1,21 +1,22 @@
 {{-- resources/views/scheduled-jobs/create.blade.php --}}
-<x-app-layout>
+<x-layout>
+
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+        <h2 class="text-xl font-semibold leading-tight text-gray-800">
             Neue geplante Aktion erstellen
         </h2>
     </x-slot>
 
     <div class="py-12">
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+            <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                 <div class="p-6">
                     <form action="{{ route('scheduled-jobs.store') }}" method="POST">
                         @csrf
 
                         {{-- Entity ID --}}
                         <div class="mb-4">
-                            <label for="entity_id" class="block text-sm font-medium text-gray-700 mb-2">
+                            <label for="entity_id" class="block mb-2 text-sm font-medium text-gray-700">
                                 Entity ID *
                             </label>
                             <input type="text" name="entity_id" id="entity_id" value="{{ old('entity_id') }}"
@@ -28,7 +29,7 @@
 
                         {{-- Action --}}
                         <div class="mb-4">
-                            <label for="action" class="block text-sm font-medium text-gray-700 mb-2">
+                            <label for="action" class="block mb-2 text-sm font-medium text-gray-700">
                                 Aktion *
                             </label>
                             <input type="text" name="action" id="action" value="{{ old('action') }}"
@@ -41,7 +42,7 @@
 
                         {{-- Scheduled Time --}}
                         <div class="mb-4">
-                            <label for="scheduled_time" class="block text-sm font-medium text-gray-700 mb-2">
+                            <label for="scheduled_time" class="block mb-2 text-sm font-medium text-gray-700">
                                 Uhrzeit *
                             </label>
                             <input type="time" name="scheduled_time" id="scheduled_time"
@@ -54,7 +55,7 @@
 
                         {{-- Weekdays --}}
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <label class="block mb-2 text-sm font-medium text-gray-700">
                                 Wochentage (leer lassen für täglich)
                             </label>
                             <div class="grid grid-cols-7 gap-2">
@@ -90,14 +91,14 @@
                             <label class="flex items-center">
                                 <input type="checkbox" name="is_repeating" value="1"
                                     {{ old('is_repeating', true) ? 'checked' : '' }}
-                                    class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    class="text-blue-600 border-gray-300 rounded shadow-sm focus:border-blue-500 focus:ring-blue-500">
                                 <span class="ml-2 text-sm text-gray-700">Wiederkehrend</span>
                             </label>
                         </div>
 
                         {{-- Parameters --}}
                         <div class="mb-4">
-                            <label for="parameters" class="block text-sm font-medium text-gray-700 mb-2">
+                            <label for="parameters" class="block mb-2 text-sm font-medium text-gray-700">
                                 Parameter (JSON)
                             </label>
                             <textarea name="parameters_json" id="parameters" rows="4" placeholder='{"brightness": 255, "color_name": "red"}'
@@ -109,13 +110,13 @@
                         </div>
 
                         {{-- Buttons --}}
-                        <div class="flex items-center justify-end space-x-3 mt-6">
+                        <div class="flex items-center justify-end mt-6 space-x-3">
                             <a href="{{ route('scheduled-jobs.index') }}"
-                                class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                class="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50">
                                 Abbrechen
                             </a>
                             <button type="submit"
-                                class="px-4 py-2 bg-blue-500 hover:bg-blue-700 text-white font-bold rounded">
+                                class="px-4 py-2 font-bold text-white bg-blue-500 rounded hover:bg-blue-700">
                                 Erstellen
                             </button>
                         </div>
@@ -124,32 +125,24 @@
             </div>
         </div>
     </div>
-</x-app-layout>
 
-{{-- resources/views/scheduled-jobs/edit.blade.php --}}
-<x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+        <h2 class="text-xl font-semibold leading-tight text-gray-800">
             Geplante Aktion bearbeiten
         </h2>
     </x-slot>
 
     <div class="py-12">
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+            <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                 <div class="p-6">
-                    @php
-                        if (!isset($scheduledJob)) {
-                            $scheduledJob = -1;
-                        }
-                    @endphp
                     <form action="{{ route('scheduled-jobs.update', $scheduledJob) }}" method="POST">
                         @csrf
                         @method('PUT')
 
                         {{-- Entity ID --}}
                         <div class="mb-4">
-                            <label for="entity_id" class="block text-sm font-medium text-gray-700 mb-2">
+                            <label for="entity_id" class="block mb-2 text-sm font-medium text-gray-700">
                                 Entity ID *
                             </label>
                             <input type="text" name="entity_id" id="entity_id"
@@ -163,7 +156,7 @@
 
                         {{-- Action --}}
                         <div class="mb-4">
-                            <label for="action" class="block text-sm font-medium text-gray-700 mb-2">
+                            <label for="action" class="block mb-2 text-sm font-medium text-gray-700">
                                 Aktion *
                             </label>
                             <input type="text" name="action" id="action"
@@ -176,7 +169,7 @@
 
                         {{-- Scheduled Time --}}
                         <div class="mb-4">
-                            <label for="scheduled_time" class="block text-sm font-medium text-gray-700 mb-2">
+                            <label for="scheduled_time" class="block mb-2 text-sm font-medium text-gray-700">
                                 Uhrzeit *
                             </label>
                             <input type="time" name="scheduled_time" id="scheduled_time"
@@ -189,7 +182,7 @@
 
                         {{-- Weekdays --}}
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <label class="block mb-2 text-sm font-medium text-gray-700">
                                 Wochentage (leer lassen für täglich)
                             </label>
                             <div class="grid grid-cols-7 gap-2">
@@ -226,14 +219,14 @@
                             <label class="flex items-center">
                                 <input type="checkbox" name="is_repeating" value="1"
                                     {{ old('is_repeating', $scheduledJob->is_repeating) ? 'checked' : '' }}
-                                    class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    class="text-blue-600 border-gray-300 rounded shadow-sm focus:border-blue-500 focus:ring-blue-500">
                                 <span class="ml-2 text-sm text-gray-700">Wiederkehrend</span>
                             </label>
                         </div>
 
                         {{-- Parameters --}}
                         <div class="mb-4">
-                            <label for="parameters" class="block text-sm font-medium text-gray-700 mb-2">
+                            <label for="parameters" class="block mb-2 text-sm font-medium text-gray-700">
                                 Parameter (JSON)
                             </label>
                             <textarea name="parameters_json" id="parameters" rows="4"
@@ -246,13 +239,13 @@
                         </div>
 
                         {{-- Buttons --}}
-                        <div class="flex items-center justify-end space-x-3 mt-6">
+                        <div class="flex items-center justify-end mt-6 space-x-3">
                             <a href="{{ route('scheduled-jobs.index') }}"
-                                class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                class="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50">
                                 Abbrechen
                             </a>
                             <button type="submit"
-                                class="px-4 py-2 bg-blue-500 hover:bg-blue-700 text-white font-bold rounded">
+                                class="px-4 py-2 font-bold text-white bg-blue-500 rounded hover:bg-blue-700">
                                 Aktualisieren
                             </button>
                         </div>
@@ -261,4 +254,4 @@
             </div>
         </div>
     </div>
-</x-app-layout>
+</x-layout>

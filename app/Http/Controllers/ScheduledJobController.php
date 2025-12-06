@@ -12,37 +12,27 @@ class ScheduledJobController extends Controller
     public function index()
     {
         $scheduledJobs = ScheduledJob::orderBy('next_run_at')->paginate(15);
-        if ($scheduledJobs->isEmpty()) {
-            // Leere Pagination erzeugen
-            $scheduledJobs = new \Illuminate\Pagination\LengthAwarePaginator(
-                collect([]), // leere Collection
-                0,           // total
-                15,          // pro Seite
-                1            // aktuelle Seite
-            );
-            if ($scheduledJobs->isEmpty()) {
 
-            // Dummy-Job erzeugen
-            $dummy = new ScheduledJob([
-                'entity_id'     => '—',
-                'action'        => '—',
-                'scheduled_time'=> now(),
-                'weekdays'      => [],
-                'is_repeating'  => false,
-                'next_run_at'   => null,
-                'last_run_at'   => null,
-                'parameters'    => [],
-                'is_active'     => false,
+        // Für das Formular den ersten Job nehmen
+        $scheduledJob = $scheduledJobs->first();
+
+        if (!$scheduledJob) {
+            // Dummy-Job erzeugen mit temporärer ID
+            $scheduledJob = new ScheduledJob([
+                'entity_id'      => '',
+                'action'         => '',
+                'scheduled_time' => now(),
+                'weekdays'       => [],
+                'is_repeating'   => false,
+                'parameters'     => [],
+                'is_active'      => false,
             ]);
 
-            // Model als "read-only Dummy" markieren (keine ID, kein Save möglich)
-            $dummy->exists = false;
-
-            // Dummy in eine Laravel Collection packen
-            $scheduledJobs = collect([$dummy]);
-            }
+            $scheduledJob->id = 0;     // Dummy-ID für Route
+            $scheduledJob->exists = true; // existiert, damit Blade Update-Route baut
         }
-        return view('homeassistant.scheduled-jobs', compact('scheduledJobs'));
+
+        return view('homeassistant.scheduled-jobs', compact('scheduledJobs', 'scheduledJob'));
     }
 
     public function create()
