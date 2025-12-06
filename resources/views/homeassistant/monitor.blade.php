@@ -98,4 +98,7 @@
             </div>
         </div>
     </div>
+    @push('scripts')
+        @vite(['resources/js/homeassistant-monitor.js'])
+    @endpush
 </x-layout>

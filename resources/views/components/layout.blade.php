@@ -6,14 +6,16 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Mails')</title>
 
-    <!-- Tailwind CSS -->
-    @vite(['resources/css/app.css', 'resources/css/ha.css', 'resources/js/homeassistant-monitor.js', 'resources/js/app.js'])
+    <!-- Nur CSS im Head -->
+    @vite(['resources/css/app.css', 'resources/css/ha.css', 'resources/js/app.js'])
+    @stack('scripts') {{-- Füge Stack hinzu --}}
 
     @livewireStyles
 </head>
 
 <body>
-    {{ $slot }} {{-- hier wird der Inhalt eingefügt --}}
+    {{ $slot }}
+
     @livewireScripts
 </body>
 

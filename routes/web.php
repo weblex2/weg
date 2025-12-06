@@ -5,6 +5,7 @@ use App\Http\Controllers\EmailController;
 use App\Http\Controllers\HomeAssistantController;
 use App\Http\Controllers\DeployController;
 use App\Http\Controllers\HomeAssistantWebServiceController;
+use App\Http\Controllers\ScheduledJobController;
 
 
 Route::get('/', function () {
@@ -60,4 +61,15 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/deploy-page', function () {
     return view('homeassistant.deploy');
     })->name('deploy.page');
+});
+
+
+Route::middleware(['auth'])->prefix('scheduled-jobs')->group(function () {
+    Route::get('/', [ScheduledJobController::class, 'index'])->name('scheduled-jobs.index');
+    Route::get('/create', [ScheduledJobController::class, 'create'])->name('scheduled-jobs.create');
+    Route::post('/', [ScheduledJobController::class, 'store'])->name('scheduled-jobs.store');
+    Route::delete('/{scheduledJob}', [ScheduledJobController::class, 'destroy'])->name('scheduled-jobs.destroy');
+    Route::post('/{scheduledJob}/toggle', [ScheduledJobController::class, 'toggle'])->name('scheduled-jobs.toggle');
+    Route::resource('scheduled-jobs', ScheduledJobController::class);
+    Route::patch('scheduled-jobs/{scheduledJob}/toggle', [ScheduledJobController::class, 'toggle'])->name('scheduled-jobs.toggle');
 });

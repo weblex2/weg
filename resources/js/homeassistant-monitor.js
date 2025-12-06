@@ -10,7 +10,13 @@ let currentFilter = 'all';
 let viewMode = 'entities';
 
 // Initialize on DOM ready
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
+    console.log('DOMContentLoaded fired');
+    console.log('All elements check:');
+    console.log('- statusDot:', document.getElementById('statusDot'));
+    console.log('- statusText:', document.getElementById('statusText'));
+    console.log('- errorMessage:', document.getElementById('errorMessage'));
+    console.log('- devices-grid:', document.getElementById('devices-grid'));
     loadDevices();
     startAutoUpdate();
     initializeEventListeners();
@@ -335,6 +341,11 @@ function updateStatus(connected, text) {
     const dot = document.getElementById('statusDot');
     const statusText = document.getElementById('statusText');
 
+    if (!dot || !statusText) {
+        console.error('Status elements not found!');
+        return;
+    }
+
     if (connected) {
         dot.className = 'ha-status-dot connected';
     } else {
@@ -414,4 +425,9 @@ function toggleViewMode() {
     devices.clear();
 
     loadDevices();
+    console.log('Script loaded, readyState:', document.readyState);
+console.log('Body exists:', !!document.body);
+console.log('statusDot exists:', !!document.getElementById('statusDot'));
+console.log('statusText exists:', !!document.getElementById('statusText'));
+console.log('devices-grid exists:', !!document.getElementById('devices-grid'));
 }
