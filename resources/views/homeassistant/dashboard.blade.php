@@ -581,7 +581,7 @@
         }
 
         function updateLightControls(entityId, containerId) {
-            fetch('/homeassistant:8123/state/' + encodeURIComponent(entityId))
+            fetch('/homeassistant/state/' + encodeURIComponent(entityId))
                 .then(response => response.json())
                 .then(data => {
                     if (data.success && data.state.state === 'on') {
