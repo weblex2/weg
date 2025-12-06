@@ -13,7 +13,7 @@ class HomeAssistantController extends Controller
 
     public function __construct()
     {
-        $this->haUrl = env('HA_URL', 'http://homeassistant.local:8123');
+        $this->haUrl = env('HA_URL', 'http://192.168.178.71:8123');
         $this->haToken = env('HA_TOKEN');
     }
 

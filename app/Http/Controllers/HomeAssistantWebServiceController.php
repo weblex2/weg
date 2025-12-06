@@ -14,7 +14,7 @@ class HomeAssistantWebServiceController extends Controller
     public function __construct()
     {
         // Home Assistant WebSocket URL und Token aus .env
-        $this->wsUrl = env('HA_WS_URL', 'ws://homeassistant.local:8123/api/websocket');
+        $this->wsUrl = env('HA_WS_URL', 'ws://192.168.178.71:8123/api/websocket');
         $this->token = env('HA_TOKEN');
     }
 
