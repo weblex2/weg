@@ -71,7 +71,7 @@ Route::middleware(['auth'])->prefix('scheduled-jobs')->group(function () {
     Route::delete('/{scheduledJob}', [ScheduledJobController::class, 'destroy'])->name('scheduled-jobs.destroy');
     Route::post('/{scheduledJob}/toggle', [ScheduledJobController::class, 'toggle'])->name('scheduled-jobs.toggle');
     //Route::resource('scheduled-jobs', ScheduledJobController::class);
-    Route::patch('scheduled-jobs/{scheduledJob}/toggle', [ScheduledJobController::class, 'toggle'])->name('scheduled-jobs.toggle');
+    Route::patch('scheduled-jobs/{scheduledJob}/toggle', [ScheduledJobController::class, 'toggle'])->name('scheduled-jobs.toggle2');
 });
 
 Route::get('/homeassistant', [HomeAssistantController::class, 'dashboard'])
