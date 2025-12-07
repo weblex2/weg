@@ -29,7 +29,15 @@ class ScheduledJobController extends Controller
 
         // Entities aus Cache oder API laden
         $cacheKey = 'homeassistant:entities';
-        $cacheDuration = 300; // 5 Minuten
+        $cacheDuration = 3000; // 5 Minuten
+
+        // Prüfen ob in Redis vorhanden
+        $loadedFrom = \Cache::has($cacheKey) ? 'redis' : 'api';
+
+        \Log::channel('database')->info('HA: Entities Load Check', [
+            'cache_key'   => $cacheKey,
+            'loaded_from' => $loadedFrom,
+        ]);
 
         $entities = \Cache::remember($cacheKey, $cacheDuration, function () {
             $api = new HomeAssistantController();
