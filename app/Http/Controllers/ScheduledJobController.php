@@ -28,21 +28,21 @@ class ScheduledJobController extends Controller
                 return $job;
             });
 
-        // Entities aus Cache oder API laden
-        $cacheKey = 'homeassistant:entities';
-        $cacheDuration = 3000; // 5 Minuten
+        $redis = \Illuminate\Support\Facades\Redis::connection();
 
-        // Cache-Wert abrufen
-        $entities = \Cache::get($cacheKey);
+        // Aus Redis laden
+        // Redis direkt verwenden statt Laravel Cache
+        $cacheKey = 'homeassistant:entities';
+        $cacheDuration = 3000; // Sekunden
+        $cachedData = $redis->get($cacheKey);
+        $entities = $cachedData ? json_decode($cachedData, true) : null;
         $loadedFrom = 'cache';
 
-        // Prüfen ob Cache leer ist oder keine gültigen Daten enthält
+        // Prüfen ob Cache leer ist
         if (empty($entities) || !is_array($entities) || count($entities) === 0) {
-            \Log::channel('database')->warning('HA: Cache leer oder ungültig - lade neu', [
+            \Log::channel('database')->warning('HA: Redis Cache leer - lade neu', [
                 'cache_key' => $cacheKey,
-                'cache_exists' => \Cache::has($cacheKey),
-                'cache_value_type' => gettype($entities),
-                'cache_value_empty' => empty($entities),
+                'cached_data_exists' => !is_null($cachedData),
             ]);
 
             // Neu von API laden
@@ -50,26 +50,18 @@ class ScheduledJobController extends Controller
             $entitiesResponse = $api->listEntities();
             $entities = $this->parseEntityResponse($entitiesResponse);
 
-            // In Cache speichern
-            \Cache::put($cacheKey, $entities, $cacheDuration);
+            // In Redis speichern (als JSON)
+            $redis->setex($cacheKey, $cacheDuration, json_encode($entities));
             $loadedFrom = 'api';
 
-            \Log::channel('database')->info('HA: Entities neu geladen', [
-                'cache_key' => $cacheKey,
-                'entity_count' => is_array($entities) ? count($entities) : 0,
+            \Log::channel('database')->info('HA: Entities in Redis gespeichert', [
+                'entity_count' => count($entities),
             ]);
         } else {
-            \Log::channel('database')->info('HA: Entities aus Cache geladen', [
-                'cache_key' => $cacheKey,
+            \Log::channel('database')->info('HA: Entities aus Redis geladen', [
                 'entity_count' => count($entities),
             ]);
         }
-
-        \Log::channel('database')->info('HA: Entities Load Complete', [
-            'cache_key'   => $cacheKey,
-            'loaded_from' => $loadedFrom,
-            'entity_count' => is_array($entities) ? count($entities) : 0,
-        ]);
 
 
         // Job laden (copy, edit oder neu)
