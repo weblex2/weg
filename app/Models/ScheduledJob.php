@@ -29,7 +29,7 @@ class ScheduledJob extends Model
         'last_run_at' => 'datetime',
         'scheduled_time' => 'datetime',
     ];
-
+ 
     public function calculateNextRun(): ?Carbon
     {
         $scheduledTime = Carbon::parse($this->scheduled_time);

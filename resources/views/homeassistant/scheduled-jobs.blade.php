@@ -347,7 +347,18 @@
         <div id="content-queue" class="tab-content tab-hidden">
             <div class="card">
                 <div class="card-header">
-                    <h2 class="card-title">Aktuelle Queue Jobs</h2>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <h2 class="card-title" style="margin: 0;">Aktuelle Queue Jobs</h2>
+
+                        <!-- Queue Worker Status Indicator -->
+                        <div id="worker-status-container"
+                            style="display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0.75rem; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 500;">
+                            <span id="worker-status-dot"
+                                style="width: 0.5rem; height: 0.5rem; border-radius: 50%; animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;"></span>
+                            <span id="worker-status-text">Prüfe Status...</span>
+                        </div>
+                    </div>
+
                     <button onclick="refreshQueue()" class="btn btn-primary btn-sm">
                         Aktualisieren
                     </button>
@@ -683,6 +694,89 @@
 
                 if (newContent) {
                     document.getElementById('logs-content').innerHTML = newContent.innerHTML;
+                }
+            } catch (error) {
+                console.error('Fehler beim Aktualisieren:', error);
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Aktualisieren';
+            }
+        }
+
+        async function checkWorkerStatus() {
+            const container = document.getElementById('worker-status-container');
+            const dot = document.getElementById('worker-status-dot');
+            const text = document.getElementById('worker-status-text');
+
+            try {
+                const response = await fetch('/homeassistant/queue/worker-status', {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const data = await response.json();
+
+                if (data.active) {
+                    container.className = 'worker-status-active';
+                    dot.className = 'worker-dot-active';
+                    text.textContent = 'Worker aktiv';
+                } else {
+                    container.className = 'worker-status-inactive';
+                    dot.className = 'worker-dot-inactive';
+                    text.textContent = 'Worker inaktiv';
+                }
+            } catch (error) {
+                console.error('Fehler beim Prüfen des Worker Status:', error);
+                container.className = 'worker-status-inactive';
+                dot.className = 'worker-dot-inactive';
+                text.textContent = 'Status unbekannt';
+            }
+        }
+
+        // Check worker status on page load and when switching to queue tab
+        document.addEventListener('DOMContentLoaded', function() {
+            checkWorkerStatus();
+
+            // Check every 30 seconds
+            setInterval(checkWorkerStatus, 30000);
+        });
+
+        // Override switchTab function to check worker status when switching to queue tab
+        const originalSwitchTab = switchTab;
+        switchTab = function(tab) {
+            originalSwitchTab(tab);
+            if (tab === 'queue') {
+                checkWorkerStatus();
+            }
+        };
+
+        async function refreshQueue() {
+            const button = event.target;
+            button.disabled = true;
+            button.textContent = 'Lädt...';
+
+            try {
+                // Also refresh worker status
+                await checkWorkerStatus();
+
+                const response = await fetch(window.location.href, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newContent = doc.querySelector('#queue-content');
+
+                if (newContent) {
+                    document.getElementById('queue-content').innerHTML = newContent.innerHTML;
                 }
             } catch (error) {
                 console.error('Fehler beim Aktualisieren:', error);

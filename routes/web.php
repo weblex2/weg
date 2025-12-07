@@ -80,3 +80,4 @@ Route::get('/homeassistant', [HomeAssistantController::class, 'dashboard'])
 // Monitor
 Route::get('/homeassistant/monitor', [HomeAssistantController::class, 'monitor'])->name('homeassistant.monitor');
 
+Route::get('/homeassistant/queue/worker-status', [ScheduledJobController::class, 'workerStatus']);

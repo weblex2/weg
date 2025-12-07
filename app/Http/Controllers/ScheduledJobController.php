@@ -262,4 +262,49 @@ class ScheduledJobController extends Controller
 
         return back()->with('success', 'Status erfolgreich geändert!');
     }
+
+    public function workerStatus()
+    {
+        try {
+            $active = false;
+
+            // Prüfe Betriebssystem
+            if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+                // Windows: Prüfe auf php.exe Prozesse mit queue:work
+                $command = 'wmic process where "name=\'php.exe\'" get commandline';
+                exec($command, $output);
+
+                foreach ($output as $line) {
+                    if (stripos($line, 'queue:work') !== false ||
+                        stripos($line, 'queue:listen') !== false) {
+                        $active = true;
+                        break;
+                    }
+                }
+            } else {
+                // Linux/Unix: Prüfe auf laufende Queue-Prozesse
+                $command = "ps aux | grep 'queue:work' | grep -v grep";
+                exec($command, $output);
+                $active = count($output) > 0;
+
+                // Alternativ auch queue:listen prüfen
+                if (!$active) {
+                    $command = "ps aux | grep 'queue:listen' | grep -v grep";
+                    exec($command, $output);
+                    $active = count($output) > 0;
+                }
+            }
+
+            return response()->json([
+                'active' => $active,
+                'platform' => PHP_OS
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'active' => false,
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

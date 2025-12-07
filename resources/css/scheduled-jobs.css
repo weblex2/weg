@@ -793,3 +793,39 @@
 .pagination-container p {
     display: none;
 }
+
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.5;
+        }
+    }
+
+    .worker-status-active {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+
+    .worker-status-inactive {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
+
+    .worker-status-checking {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+
+    .worker-dot-active {
+        background-color: #10b981;
+    }
+
+    .worker-dot-inactive {
+        background-color: #ef4444;
+    }
+
+    .worker-dot-checking {
+        background-color: #f59e0b;
+    }
