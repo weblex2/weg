@@ -29,7 +29,7 @@
                         Geplante Aktionen
                     </button>
                     <button onclick="switchTab('queue')" id="tab-queue" class="tab-button">
-                        Queue Status
+                        Queue Status!
                     </button>
                     <button onclick="switchTab('logs')" id="tab-logs" class="tab-button">
                         Logs
