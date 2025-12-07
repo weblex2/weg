@@ -4,19 +4,179 @@
 <head>
     <meta charset="UTF-8">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Mails')</title>
+    <title>@yield('title', 'Home Assistant')</title>
 
-    <!-- Nur CSS im Head -->
-    @vite(['resources/css/app.css', 'resources/css/ha.css', 'resources/js/app.js'])
-    @stack('scripts') {{-- Füge Stack hinzu --}}
+    <!-- CSS -->
+    @vite(['resources/css/app.css', 'resources/css/ha.css', 'resources/css/scheduled-jobs.css', 'resources/js/app.js'])
 
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    @stack('styles')
     @livewireStyles
+
+    <style>
+        /* Navigation Styles */
+        .main-nav {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-link {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 3px;
+            background: white;
+            transition: width 0.3s ease;
+        }
+
+        .nav-link:hover::after,
+        .nav-link.active::after {
+            width: 80%;
+        }
+
+        .nav-link.active {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .mobile-menu {
+            transform: translateY(-100%);
+            transition: transform 0.3s ease;
+        }
+
+        .mobile-menu.open {
+            transform: translateY(0);
+        }
+
+        body {
+            min-height: 100vh;
+            background: #f3f4f6;
+        }
+    </style>
 </head>
 
-<body>
-    {{ $slot }}
+<body class="flex flex-col min-h-screen">
+    <!-- Navigation -->
+    <nav class="main-nav">
+        <div class="container mx-auto">
+            <div class="flex items-center justify-between px-4 py-4">
+                <!-- Logo/Brand -->
+                <div class="flex items-center space-x-3">
+                    <div class="flex items-center justify-center w-10 h-10 bg-white rounded-lg">
+                        <i class="text-xl text-purple-600 fas fa-home"></i>
+                    </div>
+                    <span class="text-xl font-bold text-white">Home Assistant</span>
+                </div>
+
+                <!-- Desktop Navigation -->
+                <div class="hidden space-x-2 md:flex">
+                    <a href="{{ route('homeassistant.dashboard') }}"
+                        class="nav-link flex items-center px-4 py-2 text-white rounded-lg hover:bg-white hover:bg-opacity-10 {{ request()->routeIs('homeassistant.dashboard') ? 'active' : '' }}">
+                        <i class="mr-2 fas fa-gauge-high"></i>
+                        Dashboard
+                    </a>
+                    <a href="{{ route('homeassistant.monitor') }}"
+                        class="nav-link flex items-center px-4 py-2 text-white rounded-lg hover:bg-white hover:bg-opacity-10 {{ request()->routeIs('homeassistant.monitor') ? 'active' : '' }}">
+                        <i class="mr-2 fas fa-desktop"></i>
+                        Monitor
+                    </a>
+                    <a href="{{ route('scheduled-jobs.index') }}"
+                        class="nav-link flex items-center px-4 py-2 text-white rounded-lg hover:bg-white hover:bg-opacity-10 {{ request()->routeIs('scheduled-jobs.*') ? 'active' : '' }}">
+                        <i class="mr-2 fas fa-clock"></i>
+                        Scheduler
+                    </a>
+                </div>
+
+                <!-- Mobile Menu Button -->
+                <button onclick="toggleMobileMenu()" class="text-white md:hidden focus:outline-none">
+                    <i class="text-2xl fas fa-bars" id="menu-icon"></i>
+                </button>
+            </div>
+
+            <!-- Mobile Navigation -->
+            <div id="mobile-menu" class="mobile-menu md:hidden">
+                <div class="px-4 pb-4 space-y-2">
+                    <a href="{{ route('homeassistant.dashboard') }}"
+                        class="nav-link flex items-center px-4 py-3 text-white rounded-lg hover:bg-white hover:bg-opacity-10 {{ request()->routeIs('homeassistant.dashboard') ? 'active' : '' }}">
+                        <i class="mr-3 fas fa-gauge-high"></i>
+                        Dashboard
+                    </a>
+                    <a href="{{ route('homeassistant.monitor') }}"
+                        class="nav-link flex items-center px-4 py-3 text-white rounded-lg hover:bg-white hover:bg-opacity-10 {{ request()->routeIs('homeassistant.monitor') ? 'active' : '' }}">
+                        <i class="mr-3 fas fa-desktop"></i>
+                        Monitor
+                    </a>
+                    <a href="{{ route('scheduled-jobs.index') }}"
+                        class="nav-link flex items-center px-4 py-3 text-white rounded-lg hover:bg-white hover:bg-opacity-10 {{ request()->routeIs('scheduled-jobs.*') ? 'active' : '' }}">
+                        <i class="mr-3 fas fa-clock"></i>
+                        Scheduler
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1">
+        {{ $slot }}
+    </main>
+
+    <!-- Footer (optional) -->
+    <footer class="py-4 mt-auto text-center text-gray-600 bg-white border-t border-gray-200">
+        <p class="text-sm">
+            <i class="text-red-500 fas fa-heart"></i>
+            Home Assistant Dashboard {{ date('Y') }}
+        </p>
+    </footer>
 
     @livewireScripts
+    @stack('scripts')
+
+    <script>
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            const icon = document.getElementById('menu-icon');
+
+            menu.classList.toggle('open');
+
+            if (menu.classList.contains('open')) {
+                icon.classList.remove('fa-bars');
+                icon.classList.add('fa-times');
+            } else {
+                icon.classList.remove('fa-times');
+                icon.classList.add('fa-bars');
+            }
+        }
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const menu = document.getElementById('mobile-menu');
+            const button = event.target.closest('button[onclick="toggleMobileMenu()"]');
+
+            if (!button && !menu.contains(event.target) && menu.classList.contains('open')) {
+                toggleMobileMenu();
+            }
+        });
+
+        // Close mobile menu on route change (for SPA-like behavior)
+        document.querySelectorAll('#mobile-menu a').forEach(link => {
+            link.addEventListener('click', function() {
+                const menu = document.getElementById('mobile-menu');
+                if (menu.classList.contains('open')) {
+                    toggleMobileMenu();
+                }
+            });
+        });
+    </script>
 </body>
 
 </html>

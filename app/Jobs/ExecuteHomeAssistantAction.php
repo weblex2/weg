@@ -22,9 +22,14 @@ class ExecuteHomeAssistantAction implements ShouldQueue
 
     public function handle(): void
     {
+        Log::channel('database')->info('ExecuteHomeAssistantAction started', [
+            'type' => 'ha_job_execution',
+            'job' => $this->scheduledJob->name,
+            'entity' => $this->scheduledJob->entity_id,
+        ]);
+
         $haUrl = config('homeassistant.url');
         $haToken = config('homeassistant.token');
-
         $domain = explode('.', $this->scheduledJob->entity_id)[0];
 
         try {
@@ -37,28 +42,39 @@ class ExecuteHomeAssistantAction implements ShouldQueue
             ]);
 
             if ($response->successful()) {
-                Log::info("Job executed successfully", [
+                Log::channel('database')->info("Job executed successfully", [
+                    'type' => 'ha_job_execution',
                     'job_id' => $this->scheduledJob->id,
-                    'entity_id' => $this->scheduledJob->entity_id
                 ]);
 
-                // Update last run time
+                // Update last run
                 $this->scheduledJob->update([
                     'last_run_at' => now()
                 ]);
 
-                // Reschedule if repeating
+                // Wenn wiederholend: nächsten Run berechnen und dispatchen
                 if ($this->scheduledJob->is_repeating) {
                     $this->rescheduleJob();
+                } else {
+                    // Einmaliger Job: löschen
+                    Log::channel('database')->info("Deleting non-repeating job", [
+                        'type' => 'ha_job_execution',
+                        'job_id' => $this->scheduledJob->id,
+                        'job_name' => $this->scheduledJob->name,
+                    ]);
+
+                    $this->scheduledJob->delete();
                 }
             } else {
-                Log::error("Job execution failed", [
+                Log::channel('database')->error("Job execution failed", [
+                    'type' => 'ha_job_execution',
                     'job_id' => $this->scheduledJob->id,
                     'response' => $response->body()
                 ]);
             }
         } catch (\Exception $e) {
-            Log::error("Job execution error", [
+            Log::channel('database')->error("Job execution error", [
+                'type' => 'ha_job_execution',
                 'job_id' => $this->scheduledJob->id,
                 'error' => $e->getMessage()
             ]);
@@ -68,51 +84,33 @@ class ExecuteHomeAssistantAction implements ShouldQueue
 
     private function rescheduleJob(): void
     {
-        $nextRun = $this->calculateNextRun();
+        $nextRun = $this->scheduledJob->calculateNextRun();
 
         if ($nextRun) {
+            // Stelle sicher, dass $nextRun die richtige Timezone hat
+            $nextRun = Carbon::parse($nextRun)->timezone(config('app.timezone'));
+
             $this->scheduledJob->update([
                 'next_run_at' => $nextRun
             ]);
 
-            // Schedule the next execution
-            $delay = $nextRun->diffInSeconds(now());
-            static::dispatch($this->scheduledJob)->delay($delay);
+            // WICHTIG: delay() direkt mit Carbon-Objekt, nicht mit Sekunden!
+            static::dispatch($this->scheduledJob)->delay($nextRun);
 
-            Log::info("Job rescheduled", [
+            Log::channel('database')->info("Job rescheduled", [
+                'type' => 'ha_job_execution',
                 'job_id' => $this->scheduledJob->id,
-                'next_run' => $nextRun
+                'job_name' => $this->scheduledJob->name,
+                'next_run' => $nextRun->format('Y-m-d H:i:s'),
+                'next_run_timestamp' => $nextRun->timestamp,
+                'timezone' => $nextRun->timezone->getName(),
+            ]);
+        } else {
+            Log::channel('database')->warning("Could not calculate next run", [
+                'type' => 'ha_job_execution',
+                'job_id' => $this->scheduledJob->id,
+                'job_name' => $this->scheduledJob->name,
             ]);
         }
-    }
-
-    private function calculateNextRun(): ?Carbon
-    {
-        $scheduledTime = Carbon::parse($this->scheduledJob->scheduled_time);
-        $nextRun = Carbon::today()->setTimeFrom($scheduledTime);
-
-        // If scheduled time today has passed, start from tomorrow
-        if ($nextRun->isPast()) {
-            $nextRun->addDay();
-        }
-
-        // If specific weekdays are set, find next matching day
-        if (!empty($this->scheduledJob->weekdays)) {
-            $maxDays = 7;
-            $daysChecked = 0;
-
-            while ($daysChecked < $maxDays) {
-                // Carbon: 1 = Monday, 7 = Sunday
-                if (in_array($nextRun->dayOfWeek, $this->scheduledJob->weekdays)) {
-                    return $nextRun;
-                }
-                $nextRun->addDay();
-                $daysChecked++;
-            }
-
-            return null; // No valid weekday found
-        }
-
-        return $nextRun;
     }
 }

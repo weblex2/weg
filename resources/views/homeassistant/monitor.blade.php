@@ -1,5 +1,4 @@
 <x-layout>
-    <link rel="stylesheet" href="{{ asset('css/homeassistant-monitor.css') }}">
     <div class="ha-container">
         <!-- Linke Sidebar mit Status -->
         <div class="ha-sidebar">

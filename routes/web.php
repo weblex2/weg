@@ -51,7 +51,7 @@ Route::prefix('homeassistant')->group(function () {
     Route::get('/ws/entities', [HomeAssistantWebServiceController::class, 'listEntities']);
     Route::get('/ws/monitor', function () {
         return view('homeassistant.monitor');
-    });
+    })->name('monitor');
     Route::post('/ws/service', [HomeAssistantWebServiceController::class, 'callService']);
 });
 
@@ -73,3 +73,13 @@ Route::middleware(['auth'])->prefix('scheduled-jobs')->group(function () {
     Route::resource('scheduled-jobs', ScheduledJobController::class);
     Route::patch('scheduled-jobs/{scheduledJob}/toggle', [ScheduledJobController::class, 'toggle'])->name('scheduled-jobs.toggle');
 });
+
+Route::get('/homeassistant', [HomeAssistantController::class, 'dashboard'])
+    ->name('homeassistant.dashboard');
+
+// Monitor
+Route::get('/homeassistant/monitor', [HomeAssistantController::class, 'monitor'])
+    ->name('homeassistant.monitor');
+
+// Scheduler (existiert bereits)
+Route::resource('scheduled-jobs', ScheduledJobController::class);

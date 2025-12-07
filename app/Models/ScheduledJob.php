@@ -3,41 +3,62 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Carbon\Carbon;
 
 class ScheduledJob extends Model
 {
-    protected $guarded = ['id'];
-
-    // In App\Models\ScheduledJob
-    protected $casts = [
-        'scheduled_time' => 'datetime',
-        'next_run_at' => 'datetime',
-        'last_run_at' => 'datetime',
-        'weekdays' => 'array',
-        'parameters' => 'array',
-        'is_active' => 'boolean',
-        'is_repeating' => 'boolean',
+    protected $fillable = [
+        'name',
+        'entity_id',
+        'action',
+        'parameters',
+        'scheduled_time',
+        'weekdays',
+        'is_repeating',
+        'is_active',
+        'next_run_at',
+        'last_run_at',
     ];
 
-    public function getWeekdaysDisplayAttribute()
+    protected $casts = [
+        'parameters' => 'array',
+        'weekdays' => 'array',
+        'is_repeating' => 'boolean',
+        'is_active' => 'boolean',
+        'next_run_at' => 'datetime',
+        'last_run_at' => 'datetime',
+        'scheduled_time' => 'datetime',
+    ];
+
+    public function calculateNextRun(): ?Carbon
     {
-        if (empty($this->weekdays)) {
-            return 'Täglich';
+        $scheduledTime = Carbon::parse($this->scheduled_time);
+        $nextRun = Carbon::today()->setTimeFrom($scheduledTime);
+
+        // If scheduled time today has passed, start from tomorrow
+        if ($nextRun->isPast()) {
+            $nextRun->addDay();
         }
 
-        $days = [
-            1 => 'Mo',
-            2 => 'Di',
-            3 => 'Mi',
-            4 => 'Do',
-            5 => 'Fr',
-            6 => 'Sa',
-            7 => 'So'
-        ];
+        // If specific weekdays are set, find next matching day
+        if (!empty($this->weekdays)) {
+            $maxDays = 7;
+            $daysChecked = 0;
 
-        return collect($this->weekdays)
-            ->map(fn($day) => $days[$day])
-            ->join(', ');
+            while ($daysChecked < $maxDays) {
+                // Carbon::dayOfWeekIso: 1 = Monday, 7 = Sunday
+                $carbonDay = $nextRun->dayOfWeekIso;
+
+                if (in_array($carbonDay, $this->weekdays)) {
+                    return $nextRun;
+                }
+                $nextRun->addDay();
+                $daysChecked++;
+            }
+
+            return null; // No valid weekday found
+        }
+
+        return $nextRun;
     }
-
 }

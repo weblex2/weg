@@ -17,6 +17,9 @@ class HomeAssistantController extends Controller
         $this->haToken = env('HA_TOKEN');
     }
 
+    public function monitor(){
+        return view('homeassistant.monitor');
+    }
     /**
      * Ermittle die Domain aus der Entity ID
      */

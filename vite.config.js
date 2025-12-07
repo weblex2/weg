@@ -6,7 +6,8 @@ export default defineConfig({
         laravel({
             input: [
                 'resources/css/app.css',
-                'resources/css/ha.css',  // ← hinzufügen
+                'resources/css/ha.css',
+                'resources/css/scheduled-jobs.css',
                 'resources/js/app.js',
                 'resources/js/homeassistant-monitor.js',
             ],
