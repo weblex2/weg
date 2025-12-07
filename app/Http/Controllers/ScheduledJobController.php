@@ -32,24 +32,45 @@ class ScheduledJobController extends Controller
         $cacheKey = 'homeassistant:entities';
         $cacheDuration = 3000; // 5 Minuten
 
-        // Prüfen ob in Redis vorhanden
-        $loadedFrom = \Cache::has($cacheKey) ? 'redis' : 'api';
+        // Cache-Wert abrufen
+        $entities = \Cache::get($cacheKey);
+        $loadedFrom = 'cache';
 
-        \Log::channel('database')->info('HA: Entities Load Check', [
+        // Prüfen ob Cache leer ist oder keine gültigen Daten enthält
+        if (empty($entities) || !is_array($entities) || count($entities) === 0) {
+            \Log::channel('database')->warning('HA: Cache leer oder ungültig - lade neu', [
+                'cache_key' => $cacheKey,
+                'cache_exists' => \Cache::has($cacheKey),
+                'cache_value_type' => gettype($entities),
+                'cache_value_empty' => empty($entities),
+            ]);
+
+            // Neu von API laden
+            $api = new HomeAssistantController();
+            $entitiesResponse = $api->listEntities();
+            $entities = $this->parseEntityResponse($entitiesResponse);
+
+            // In Cache speichern
+            \Cache::put($cacheKey, $entities, $cacheDuration);
+            $loadedFrom = 'api';
+
+            \Log::channel('database')->info('HA: Entities neu geladen', [
+                'cache_key' => $cacheKey,
+                'entity_count' => is_array($entities) ? count($entities) : 0,
+            ]);
+        } else {
+            \Log::channel('database')->info('HA: Entities aus Cache geladen', [
+                'cache_key' => $cacheKey,
+                'entity_count' => count($entities),
+            ]);
+        }
+
+        \Log::channel('database')->info('HA: Entities Load Complete', [
             'cache_key'   => $cacheKey,
             'loaded_from' => $loadedFrom,
+            'entity_count' => is_array($entities) ? count($entities) : 0,
         ]);
 
-        $entities = \Cache::remember($cacheKey, $cacheDuration, function () {
-            $api = new HomeAssistantController();
-            $entitiesResponse = $api->listEntities();
-            return $this->parseEntityResponse($entitiesResponse);
-        });
-        /* $entities = \Cache::rememberForever('homeassistant:entities', function () {
-            $api = new HomeAssistantController();
-            $entitiesResponse = $api->listEntities();
-            return $this->parseEntityResponse($entitiesResponse);
-        }); */
 
         // Job laden (copy, edit oder neu)
         if ($request->has('copy')) {
