@@ -31,7 +31,12 @@ class ScheduledJobController extends Controller
         $cacheKey = 'homeassistant:entities';
         $cacheDuration = 300; // 5 Minuten
 
-        $entities = \Cache::remember($cacheKey, $cacheDuration, function () {
+        /* $entities = \Cache::remember($cacheKey, $cacheDuration, function () {
+            $api = new HomeAssistantController();
+            $entitiesResponse = $api->listEntities();
+            return $this->parseEntityResponse($entitiesResponse);
+        }); */
+        $entities = \Cache::rememberForever('homeassistant:entities', function () {
             $api = new HomeAssistantController();
             $entitiesResponse = $api->listEntities();
             return $this->parseEntityResponse($entitiesResponse);
