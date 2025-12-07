@@ -8,6 +8,7 @@ use App\Jobs\ExecuteHomeAssistantAction;
 use App\Http\Controllers\HomeAssistantController;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Artisan;
 
 class ScheduledJobController extends Controller
 {
@@ -168,6 +169,7 @@ class ScheduledJobController extends Controller
                 ]);
             }
         }
+        Artisan::call('ha:boot');
 
         return redirect()->route('scheduled-jobs.index')
             ->with('success', 'Aktion erfolgreich erstellt!');
@@ -224,6 +226,8 @@ class ScheduledJobController extends Controller
                 }
             }
         }
+
+        Artisan::call('ha:boot');
 
         return redirect()->route('scheduled-jobs.index')
             ->with('success', 'Aktion erfolgreich aktualisiert!');
