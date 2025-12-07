@@ -75,7 +75,7 @@ class ScheduledJobController extends Controller
         }
 
         // Logs-Pagination (verwendet 'logs_page')
-        $logs = Logs::paginate(15, ['*'], 'logs_page');
+        $logs = Logs::orderBy('created_t', 'desc')->paginate(15, ['*'], 'logs_page');
 
         return view('homeassistant.scheduled-jobs', compact('scheduledJobs', 'scheduledJob', 'entities', 'queueJobs', 'logs'));
     }
