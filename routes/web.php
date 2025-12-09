@@ -76,7 +76,7 @@ Route::middleware(['auth'])->prefix('homeassistant/scheduled-jobs')->name('sched
     Route::get('{scheduledJob}/edit', [ScheduledJobController::class, 'edit'])->name('edit');
     Route::put('{scheduledJob}', [ScheduledJobController::class, 'update'])->name('update');
     Route::delete('{scheduledJob}', [ScheduledJobController::class, 'destroy'])->name('destroy');
-}); 
+});  
 
 Route::get('/homeassistant', [HomeAssistantController::class, 'dashboard'])
     ->name('homeassistant.dashboard');
