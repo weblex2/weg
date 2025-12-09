@@ -11,15 +11,44 @@ let viewMode = 'entities';
 
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', function () {
-    console.log('DOMContentLoaded fired');
-    console.log('All elements check:');
-    console.log('- statusDot:', document.getElementById('statusDot'));
-    console.log('- statusText:', document.getElementById('statusText'));
-    console.log('- errorMessage:', document.getElementById('errorMessage'));
-    console.log('- devices-grid:', document.getElementById('devices-grid'));
-    loadDevices();
-    startAutoUpdate();
-    initializeEventListeners();
+    console.log('=== DOM Ready - Initialization Start ===');
+    console.log('Current URL:', window.location.href);
+    console.log('Document readyState:', document.readyState);
+
+    // Check for required elements
+    const requiredElements = {
+        'statusDot': document.getElementById('statusDot'),
+        'statusText': document.getElementById('statusText'),
+        'errorMessage': document.getElementById('errorMessage'),
+        'devices-grid': document.getElementById('devices-grid'),
+        'search-input': document.getElementById('search-input'),
+        'deviceCount': document.getElementById('deviceCount')
+    };
+
+    console.log('Element check:', requiredElements);
+
+    // Verify all required elements exist
+    const missingElements = Object.entries(requiredElements)
+        .filter(([_, element]) => !element)
+        .map(([name, _]) => name);
+
+    if (missingElements.length > 0) {
+        console.error('FEHLER: Fehlende HTML-Elemente:', missingElements);
+        alert('Initialisierungsfehler: Fehlende HTML-Elemente. Bitte Seite neu laden.');
+        return;
+    }
+
+    console.log('Alle Elemente gefunden - starte Initialisierung...');
+
+    try {
+        loadDevices();
+        startAutoUpdate();
+        initializeEventListeners();
+        console.log('=== Initialization Complete ===');
+    } catch (error) {
+        console.error('Initialisierungsfehler:', error);
+        showError('Initialisierungsfehler: ' + error.message);
+    }
 });
 
 // Event Listeners
