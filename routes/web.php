@@ -64,15 +64,18 @@ Route::middleware(['auth'])->group(function () {
 });
 
 
-Route::middleware(['auth'])->prefix('scheduled-jobs')->name('scheduled-jobs.')->group(function () {
-    // Custom routes mit klaren Namen ZUERST
-    Route::post('{scheduledJob}/toggle', [ScheduledJobController::class, 'toggle'])->name('toggle');
+Route::middleware(['auth'])->prefix('homeassistant/scheduled-jobs')->name('scheduled-jobs.')->group(function () {
+    // Custom routes ZUERST (spezifischere Routen vor Resource-Routes)
     Route::get('worker-status', [ScheduledJobController::class, 'workerStatus'])->name('worker-status');
+    Route::post('{scheduledJob}/toggle', [ScheduledJobController::class, 'toggle'])->name('toggle');
 
-    // Resource Route (ohne show, wenn nicht benötigt)
-    Route::resource('/', ScheduledJobController::class)
-        ->parameters(['' => 'scheduledJob'])
-        ->except(['show']);
+    // Resource Routes (keine leeren Parameter)
+    Route::get('/', [ScheduledJobController::class, 'index'])->name('index');
+    Route::get('create', [ScheduledJobController::class, 'create'])->name('create');
+    Route::post('/', [ScheduledJobController::class, 'store'])->name('store');
+    Route::get('{scheduledJob}/edit', [ScheduledJobController::class, 'edit'])->name('edit');
+    Route::put('{scheduledJob}', [ScheduledJobController::class, 'update'])->name('update');
+    Route::delete('{scheduledJob}', [ScheduledJobController::class, 'destroy'])->name('destroy');
 });
 
 Route::get('/homeassistant', [HomeAssistantController::class, 'dashboard'])
