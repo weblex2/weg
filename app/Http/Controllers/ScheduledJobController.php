@@ -12,8 +12,7 @@ use Illuminate\Support\Facades\Artisan;
 
 class ScheduledJobController extends Controller
 {
-    public function index(Request $request)
-    {
+    public function index(Request $request) {
         // Jobs-Pagination (verwendet 'page')
         $scheduledJobs = ScheduledJob::orderBy('next_run_at')->paginate(15);
 
@@ -31,38 +30,91 @@ class ScheduledJobController extends Controller
         $redis = \Illuminate\Support\Facades\Redis::connection();
 
         // Aus Redis laden
-        // Redis direkt verwenden statt Laravel Cache
         $cacheKey = 'homeassistant:entities';
         $cacheDuration = 3000; // Sekunden
+
+        \Log::channel('database')->info('HA: Starte Entity-Laden', [
+            'cache_key' => $cacheKey,
+        ]);
+
         $cachedData = $redis->get($cacheKey);
-        $entities = $cachedData ? json_decode($cachedData, true) : null;
+
+        \Log::channel('database')->info('HA: Redis GET Ergebnis', [
+            'cached_data_is_null' => is_null($cachedData),
+            'cached_data_type' => gettype($cachedData),
+            'cached_data_length' => is_string($cachedData) ? strlen($cachedData) : 0,
+            'cached_data_preview' => is_string($cachedData) ? substr($cachedData, 0, 200) : null,
+        ]);
+
+        $entities = null;
         $loadedFrom = 'cache';
 
-        // Prüfen ob Cache leer ist
+        if ($cachedData) {
+            $entities = json_decode($cachedData, true);
+
+            \Log::channel('database')->info('HA: JSON Decode Ergebnis', [
+                'decode_successful' => !is_null($entities),
+                'json_last_error' => json_last_error(),
+                'json_last_error_msg' => json_last_error_msg(),
+                'entities_type' => gettype($entities),
+                'entities_is_array' => is_array($entities),
+                'entities_count' => is_array($entities) ? count($entities) : 0,
+            ]);
+        }
+
+        // Prüfen ob Cache leer/ungültig ist
         if (empty($entities) || !is_array($entities) || count($entities) === 0) {
-            \Log::channel('database')->warning('HA: Redis Cache leer - lade neu', [
+            \Log::channel('database')->warning('HA: Redis Cache leer oder ungültig - lade neu', [
                 'cache_key' => $cacheKey,
                 'cached_data_exists' => !is_null($cachedData),
+                'entities_empty' => empty($entities),
+                'entities_is_array' => is_array($entities),
+                'entities_count' => is_array($entities) ? count($entities) : 0,
             ]);
 
             // Neu von API laden
             $api = new HomeAssistantController();
+
+            \Log::channel('database')->info('HA: Rufe API auf');
+
             $entitiesResponse = $api->listEntities();
+
+            \Log::channel('database')->info('HA: API Response erhalten', [
+                'response_type' => gettype($entitiesResponse),
+                'response_class' => is_object($entitiesResponse) ? get_class($entitiesResponse) : null,
+            ]);
+
             $entities = $this->parseEntityResponse($entitiesResponse);
 
-            // In Redis speichern (als JSON)
-            $redis->setex($cacheKey, $cacheDuration, json_encode($entities));
-            $loadedFrom = 'api';
+            \Log::channel('database')->info('HA: Entities geparst', [
+                'parsed_type' => gettype($entities),
+                'parsed_is_array' => is_array($entities),
+                'parsed_count' => is_array($entities) ? count($entities) : 0,
+                'parsed_sample' => is_array($entities) && count($entities) > 0 ? array_slice($entities, 0, 2) : null,
+            ]);
 
-            \Log::channel('database')->info('HA: Entities in Redis gespeichert', [
+            // In Redis speichern (als JSON)
+            $jsonData = json_encode($entities);
+
+            \Log::channel('database')->info('HA: Speichere in Redis', [
+                'json_data_length' => strlen($jsonData),
+                'json_encode_error' => json_last_error(),
+                'json_encode_error_msg' => json_last_error_msg(),
+            ]);
+
+            $setResult = $redis->setex($cacheKey, $cacheDuration, $jsonData);
+
+            \Log::channel('database')->info('HA: Redis SETEX Ergebnis', [
+                'setex_result' => $setResult,
                 'entity_count' => count($entities),
             ]);
+
+            $loadedFrom = 'api';
         } else {
             \Log::channel('database')->info('HA: Entities aus Redis geladen', [
                 'entity_count' => count($entities),
             ]);
         }
-
 
         // Job laden (copy, edit oder neu)
         if ($request->has('copy')) {
@@ -90,6 +142,11 @@ class ScheduledJobController extends Controller
 
         // Logs-Pagination (verwendet 'logs_page')
         $logs = Logs::orderBy('created_at', 'desc')->paginate(15, ['*'], 'logs_page');
+
+        \Log::channel('database')->info('HA: View wird gerendert', [
+            'loaded_from' => $loadedFrom,
+            'final_entity_count' => is_array($entities) ? count($entities) : 0,
+        ]);
 
         return view('homeassistant.scheduled-jobs', compact('scheduledJobs', 'scheduledJob', 'entities', 'queueJobs', 'logs'));
     }

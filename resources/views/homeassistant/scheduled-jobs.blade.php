@@ -408,6 +408,7 @@
         </div>
 
         <!-- Tab Content: Logs -->
+        <!-- Tab Content: Logs -->
         <div id="content-logs" class="tab-content tab-hidden">
             <div class="card">
                 <div class="card-header">
@@ -419,141 +420,97 @@
 
                 <div id="logs-content">
                     @if (count($logs) > 0)
-                        <div class="logs-container">
-                            @foreach ($logs as $i => $log)
-                                @php
-                                    $json = json_decode($log, true);
-                                    $type = 'info';
-                                    $logClass = 'log-info';
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 140px;">Zeit</th>
+                                    <th style="width: 80px;">Level</th>
+                                    <th>Nachricht</th>
+                                    <th style="width: 200px;">Context</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($logs as $log)
+                                    @php
+                                        $json = json_decode($log, true);
 
-                                    if (is_array($json)) {
-                                        $message = $json['message'] ?? '';
+                                        if (is_array($json)) {
+                                            $timestamp = isset($json['created_at'])
+                                                ? \Carbon\Carbon::parse($json['created_at'])
+                                                    ->timezone('Europe/Berlin')
+                                                    ->format('d.m.Y H:i:s')
+                                                : '-';
 
-                                        if (isset($json['level'])) {
-                                            $level = strtolower($json['level']);
-                                            if (in_array($level, ['error', 'critical', 'alert', 'emergency'])) {
-                                                $type = 'error';
-                                                $logClass = 'log-error';
-                                            } elseif ($level === 'warning') {
-                                                $type = 'warning';
-                                                $logClass = 'log-warning';
+                                            $level = $json['level'] ?? 'info';
+                                            $message = $json['message'] ?? '';
+
+                                            // Badge class based on level
+                                            $badgeClass = 'badge-blue';
+                                            if (
+                                                in_array(strtolower($level), [
+                                                    'error',
+                                                    'critical',
+                                                    'alert',
+                                                    'emergency',
+                                                ])
+                                            ) {
+                                                $badgeClass = 'badge-red';
+                                            } elseif (strtolower($level) === 'warning') {
+                                                $badgeClass = 'badge-yellow';
                                             } elseif (
-                                                $level === 'success' ||
                                                 str_contains($message, 'successfully') ||
                                                 str_contains($message, 'success')
                                             ) {
-                                                $type = 'success';
-                                                $logClass = 'log-success';
+                                                $badgeClass = 'badge-green';
                                             }
-                                        } elseif (str_contains($message, 'error') || str_contains($message, 'failed')) {
-                                            $type = 'error';
-                                            $logClass = 'log-error';
-                                        } elseif (
-                                            str_contains($message, 'Command Started') ||
-                                            str_contains($message, 'Completed')
-                                        ) {
-                                            $type = 'success';
-                                            $logClass = 'log-success';
+
+                                            // Build context string
+                                            $excludeKeys = ['message', 'created_at', 'level', 'channel'];
+                                            $contextData = array_diff_key($json, array_flip($excludeKeys));
+                                            $contextCount = count($contextData);
+                                        } else {
+                                            $timestamp = '-';
+                                            $level = 'raw';
+                                            $message = $log;
+                                            $badgeClass = 'badge-gray';
+                                            $contextData = [];
+                                            $contextCount = 0;
                                         }
-
-                                        if (isset($json['created_at'])) {
-                                            try {
-                                                $json['created_at'] = \Carbon\Carbon::parse($json['created_at'])
-                                                    ->timezone('Europe/Berlin')
-                                                    ->format('d.m.Y H:i:s');
-                                            } catch (\Exception $e) {
-                                            }
-                                        }
-                                    }
-                                @endphp
-
-                                <div class="log-entry {{ $logClass }}">
-                                    <div class="log-content">
-                                        <div class="log-header">
-                                            <div class="log-meta">
-                                                <svg class="log-icon" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    @if ($type === 'error')
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2"
-                                                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                    @elseif ($type === 'warning')
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2"
-                                                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                                    @elseif ($type === 'success')
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2"
-                                                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                    @else
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2"
-                                                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                    @endif
-                                                </svg>
-                                                <span class="log-number">#{{ $i + 1 }}</span>
-                                                @if (is_array($json) && isset($json['created_at']))
-                                                    <span class="log-time">{{ $json['created_at'] }}</span>
-                                                @endif
-                                            </div>
-                                            @if (is_array($json) && isset($json['level']))
-                                                <span
-                                                    class="log-level log-level-{{ $type }}">{{ $json['level'] }}</span>
+                                    @endphp
+                                    <tr>
+                                        <td class="nowrap">{{ $timestamp }}</td>
+                                        <td>
+                                            <span class="badge {{ $badgeClass }}">{{ strtoupper($level) }}</span>
+                                        </td>
+                                        <td>{{ $message }}</td>
+                                        <td style="font-size: 0.75rem; color: #6b7280;">
+                                            @if ($contextCount > 0)
+                                                {{ implode(
+                                                    ', ',
+                                                    array_map(
+                                                        function ($key, $value) {
+                                                            if (is_bool($value)) {
+                                                                return $key . ': ' . ($value ? 'true' : 'false');
+                                                            } elseif (is_null($value)) {
+                                                                return $key . ': null';
+                                                            } elseif (is_array($value)) {
+                                                                return $key . ': [' . count($value) . ']';
+                                                            } else {
+                                                                return $key . ': ' . $value;
+                                                            }
+                                                        },
+                                                        array_keys($contextData),
+                                                        $contextData,
+                                                    ),
+                                                ) }}
+                                            @else
+                                                -
                                             @endif
-                                        </div>
-
-                                        @if (is_array($json))
-                                            @if (isset($json['message']))
-                                                <div class="log-message">
-                                                    <p>{{ $json['message'] }}</p>
-                                                </div>
-                                            @endif
-
-                                            @php
-                                                $excludeKeys = ['message', 'created_at', 'level', 'channel'];
-                                                $contextData = array_diff_key($json, array_flip($excludeKeys));
-                                            @endphp
-
-                                            @if (count($contextData) > 0)
-                                                <details class="log-details">
-                                                    <summary class="log-details-summary">
-                                                        Details anzeigen ({{ count($contextData) }} Einträge)
-                                                    </summary>
-                                                    <div class="log-details-content">
-                                                        <table class="log-details-table">
-                                                            <tbody>
-                                                                @foreach ($contextData as $key => $value)
-                                                                    <tr>
-                                                                        <td class="log-detail-key">{{ $key }}
-                                                                        </td>
-                                                                        <td class="log-detail-value">
-                                                                            @if (is_array($value))
-                                                                                <pre>{{ json_encode($value, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) }}</pre>
-                                                                            @elseif (is_bool($value))
-                                                                                <span
-                                                                                    class="log-bool log-bool-{{ $value ? 'true' : 'false' }}">
-                                                                                    {{ $value ? 'true' : 'false' }}
-                                                                                </span>
-                                                                            @elseif (is_null($value))
-                                                                                <span class="log-null">null</span>
-                                                                            @else
-                                                                                {{ $value }}
-                                                                            @endif
-                                                                        </td>
-                                                                    </tr>
-                                                                @endforeach
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-                                                </details>
-                                            @endif
-                                        @else
-                                            <pre class="log-raw">{{ $log }}</pre>
-                                        @endif
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
 
                         @if (method_exists($logs, 'links'))
                             <div class="pagination-container">
