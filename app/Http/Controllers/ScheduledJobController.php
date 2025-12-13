@@ -152,49 +152,60 @@ class ScheduledJobController extends Controller
     }
 
     private function parseEntityResponse($entitiesResponse)
-    {
-        // Prüfen ob es eine JsonResponse oder bereits ein Array ist
-        if ($entitiesResponse instanceof \Illuminate\Http\JsonResponse) {
-            $entitiesData = json_decode($entitiesResponse->getContent(), true);
-        } elseif (is_array($entitiesResponse)) {
-            $entitiesData = $entitiesResponse;
-        } else {
-            \Log::channel('database')->error('HA: Unbekannter Response-Typ in parseEntityResponse', [
-                'type' => gettype($entitiesResponse),
-                'class' => is_object($entitiesResponse) ? get_class($entitiesResponse) : null,
-            ]);
-            return [];
-        }
-
-        \Log::channel('database')->info('HA: parseEntityResponse - entitiesData', [
-            'has_entities_key' => isset($entitiesData['entities']),
-            'entities_count' => isset($entitiesData['entities']) ? count($entitiesData['entities']) : 0,
-            'data_keys' => array_keys($entitiesData),
-            'sample' => isset($entitiesData['entities']) ? array_slice($entitiesData['entities'], 0, 2) : null,
+{
+    // Prüfen ob es eine JsonResponse oder bereits ein Array ist
+    if ($entitiesResponse instanceof \Illuminate\Http\JsonResponse) {
+        $entitiesData = json_decode($entitiesResponse->getContent(), true);
+    } elseif (is_array($entitiesResponse)) {
+        $entitiesData = $entitiesResponse;
+    } else {
+        \Log::channel('database')->error('HA: Unbekannter Response-Typ in parseEntityResponse', [
+            'type' => gettype($entitiesResponse),
+            'class' => is_object($entitiesResponse) ? get_class($entitiesResponse) : null,
         ]);
-
-        $entitiesRaw = $entitiesData['entities'] ?? [];
-
-        // Entities nach Domain gruppieren und sortieren
-        $entities = collect($entitiesRaw)
-            ->groupBy(function($entity) {
-                return explode('.', $entity['entity_id'])[0];
-            })
-            ->map(function($domainEntities) {
-                return $domainEntities->sortBy(function($entity) {
-                    return $entity['attributes']['friendly_name'] ?? $entity['entity_id'];
-                })->values();
-            })
-            ->sortKeys()
-            ->toArray();
-
-        \Log::channel('database')->info('HA: parseEntityResponse - Ergebnis', [
-            'grouped_domains' => array_keys($entities),
-            'total_entities' => array_sum(array_map('count', $entities)),
-        ]);
-
-        return $entities;
+        return [];
     }
+
+    \Log::channel('database')->info('HA: parseEntityResponse - entitiesData', [
+        'has_entities_key' => isset($entitiesData['entities']),
+        'entities_count' => isset($entitiesData['entities']) ? count($entitiesData['entities']) : 0,
+        'data_keys' => array_keys($entitiesData),
+        'full_response' => $entitiesData, // KOMPLETTE Response loggen
+        'success' => $entitiesData['success'] ?? null,
+        'error' => $entitiesData['error'] ?? null,
+    ]);
+
+    // Prüfen ob API-Call erfolgreich war
+    if (isset($entitiesData['success']) && $entitiesData['success'] === false) {
+        \Log::channel('database')->error('HA: API returned error', [
+            'error' => $entitiesData['error'] ?? 'Unknown error',
+            'full_response' => $entitiesData,
+        ]);
+        return [];
+    }
+
+    $entitiesRaw = $entitiesData['entities'] ?? [];
+
+    // Entities nach Domain gruppieren und sortieren
+    $entities = collect($entitiesRaw)
+        ->groupBy(function($entity) {
+            return explode('.', $entity['entity_id'])[0];
+        })
+        ->map(function($domainEntities) {
+            return $domainEntities->sortBy(function($entity) {
+                return $entity['attributes']['friendly_name'] ?? $entity['entity_id'];
+            })->values();
+        })
+        ->sortKeys()
+        ->toArray();
+
+    \Log::channel('database')->info('HA: parseEntityResponse - Ergebnis', [
+        'grouped_domains' => array_keys($entities),
+        'total_entities' => array_sum(array_map('count', $entities)),
+    ]);
+
+    return $entities;
+}
 
     private function createDummyJob()
     {
