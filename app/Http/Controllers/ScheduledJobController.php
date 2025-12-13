@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\Artisan;
 class ScheduledJobController extends Controller
 {
     public function index(Request $request) {
+
+     \Log::info('=== ScheduledJobController::index START ===');
+      try {
         // Jobs-Pagination (verwendet 'page')
         $scheduledJobs = ScheduledJob::orderBy('next_run_at')->paginate(15);
 
@@ -149,6 +152,14 @@ class ScheduledJobController extends Controller
         ]);
 
         return view('homeassistant.scheduled-jobs', compact('scheduledJobs', 'scheduledJob', 'entities', 'queueJobs', 'logs'));
+         } catch (\Exception $e) {
+        \Log::error('Error in index:', [
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+        ]);
+        throw $e;
+    }
     }
 
     private function parseEntityResponse($entitiesResponse)
