@@ -321,83 +321,116 @@ class HomeAssistantController extends Controller
     /**
      * Alle Entities auflisten mit Area-Informationen
      */
-    public function listEntities($type = 'all')
-    {
-        try {
-            // Hole alle States
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->haToken,
-                'Content-Type' => 'application/json',
-            ])->get("{$this->haUrl}/api/states");
+   public function listEntities($type = 'all')
+{
+    try {
+        \Log::channel('database')->info('HA: listEntities - Start', [
+            'type' => $type,
+            'haUrl' => $this->haUrl ?? 'NOT SET',
+            'haToken_set' => isset($this->haToken),
+            'haToken_length' => isset($this->haToken) ? strlen($this->haToken) : 0,
+        ]);
 
-            if (!$response->successful()) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Failed to get entities'
-                ], $response->status());
-            }
+        // Hole alle States
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $this->haToken,
+            'Content-Type' => 'application/json',
+        ])->get("{$this->haUrl}/api/states");
 
-            $allStates = $response->json();
+        \Log::channel('database')->info('HA: listEntities - Response', [
+            'status' => $response->status(),
+            'successful' => $response->successful(),
+            'body_preview' => substr($response->body(), 0, 500),
+        ]);
 
-            // Filtere Entities
-            if ($type === 'all' || empty($type)) {
-                $entities = $allStates;
-            } else {
-                $entities = array_filter($allStates, function($entity) use ($type) {
-                    return str_starts_with($entity['entity_id'], $type . '.');
-                });
-            }
-
-            // Sammle einzigartige Area-Namen
-            $uniqueAreas = [];
-            $areaDeviceCount = [];
-
-            // Hole Area für jede Entity über Template API
-            foreach ($entities as &$entity) {
-                $entityId = $entity['entity_id'];
-                $areaName = $this->getEntityArea($entityId);
-
-                $entity['area_name'] = $areaName;
-
-                // Sammle Area-Namen für Filter
-                if ($areaName && !in_array($areaName, $uniqueAreas)) {
-                    $uniqueAreas[] = $areaName;
-                    $areaDeviceCount[$areaName] = 0;
-                }
-
-                // Zähle Geräte pro Area
-                if ($areaName) {
-                    $areaDeviceCount[$areaName]++;
-                }
-            }
-
-            // Sortiere Areas alphabetisch
-            sort($uniqueAreas);
-
-            // Erstelle Areas-Array mit Gerätezahl
-            $areasWithCount = [];
-            foreach ($uniqueAreas as $area) {
-                $areasWithCount[] = [
-                    'name' => $area,
-                    'device_count' => $areaDeviceCount[$area] ?? 0
-                ];
-            }
-
-            return response()->json([
-                'success' => true,
-                'entities' => array_values($entities),
-                'areas' => $uniqueAreas,
-                'areas_with_count' => $areasWithCount,
-                'count' => count($entities)
+        if (!$response->successful()) {
+            \Log::channel('database')->error('HA: listEntities - Request failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
             ]);
 
-        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => $e->getMessage()
-            ], 500);
+                'error' => 'Failed to get entities'
+            ], $response->status());
         }
+
+        $allStates = $response->json();
+
+        \Log::channel('database')->info('HA: listEntities - States geladen', [
+            'count' => count($allStates),
+        ]);
+
+        // Filtere Entities
+        if ($type === 'all' || empty($type)) {
+            $entities = $allStates;
+        } else {
+            $entities = array_filter($allStates, function($entity) use ($type) {
+                return str_starts_with($entity['entity_id'], $type . '.');
+            });
+        }
+
+        // Sammle einzigartige Area-Namen
+        $uniqueAreas = [];
+        $areaDeviceCount = [];
+
+        // Hole Area für jede Entity über Template API
+        foreach ($entities as &$entity) {
+            $entityId = $entity['entity_id'];
+            $areaName = $this->getEntityArea($entityId);
+
+            $entity['area_name'] = $areaName;
+
+            // Sammle Area-Namen für Filter
+            if ($areaName && !in_array($areaName, $uniqueAreas)) {
+                $uniqueAreas[] = $areaName;
+                $areaDeviceCount[$areaName] = 0;
+            }
+
+            // Zähle Geräte pro Area
+            if ($areaName) {
+                $areaDeviceCount[$areaName]++;
+            }
+        }
+
+        // Sortiere Areas alphabetisch
+        sort($uniqueAreas);
+
+        // Erstelle Areas-Array mit Gerätezahl
+        $areasWithCount = [];
+        foreach ($uniqueAreas as $area) {
+            $areasWithCount[] = [
+                'name' => $area,
+                'device_count' => $areaDeviceCount[$area] ?? 0
+            ];
+        }
+
+        \Log::channel('database')->info('HA: listEntities - Erfolg', [
+            'entity_count' => count($entities),
+            'area_count' => count($uniqueAreas),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'entities' => array_values($entities),
+            'areas' => $uniqueAreas,
+            'areas_with_count' => $areasWithCount,
+            'count' => count($entities)
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::channel('database')->error('HA: listEntities - Exception', [
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Dashboard anzeigen
