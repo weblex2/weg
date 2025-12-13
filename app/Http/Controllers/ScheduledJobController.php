@@ -153,7 +153,26 @@ class ScheduledJobController extends Controller
 
     private function parseEntityResponse($entitiesResponse)
     {
-        $entitiesData = json_decode($entitiesResponse->getContent(), true);
+        // Prüfen ob es eine JsonResponse oder bereits ein Array ist
+        if ($entitiesResponse instanceof \Illuminate\Http\JsonResponse) {
+            $entitiesData = json_decode($entitiesResponse->getContent(), true);
+        } elseif (is_array($entitiesResponse)) {
+            $entitiesData = $entitiesResponse;
+        } else {
+            \Log::channel('database')->error('HA: Unbekannter Response-Typ in parseEntityResponse', [
+                'type' => gettype($entitiesResponse),
+                'class' => is_object($entitiesResponse) ? get_class($entitiesResponse) : null,
+            ]);
+            return [];
+        }
+
+        \Log::channel('database')->info('HA: parseEntityResponse - entitiesData', [
+            'has_entities_key' => isset($entitiesData['entities']),
+            'entities_count' => isset($entitiesData['entities']) ? count($entitiesData['entities']) : 0,
+            'data_keys' => array_keys($entitiesData),
+            'sample' => isset($entitiesData['entities']) ? array_slice($entitiesData['entities'], 0, 2) : null,
+        ]);
+
         $entitiesRaw = $entitiesData['entities'] ?? [];
 
         // Entities nach Domain gruppieren und sortieren
@@ -168,6 +187,12 @@ class ScheduledJobController extends Controller
             })
             ->sortKeys()
             ->toArray();
+
+        \Log::channel('database')->info('HA: parseEntityResponse - Ergebnis', [
+            'grouped_domains' => array_keys($entities),
+            'total_entities' => array_sum(array_map('count', $entities)),
+        ]);
+
         return $entities;
     }
 
