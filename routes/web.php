@@ -65,18 +65,20 @@ Route::middleware(['auth'])->group(function () {
 
 
 Route::prefix('homeassistant/scheduled-jobs')->name('scheduled-jobs.')->group(function () {
-    // Custom routes ZUERST (spezifischere Routen vor Resource-Routes)
-    Route::get('worker-status', [ScheduledJobController::class, 'workerStatus'])->name('worker-status');
-    Route::post('{scheduledJob}/toggle', [ScheduledJobController::class, 'toggle'])->name('toggle');
-
-    // Resource Routes (keine leeren Parameter)
+    // Resource Routes ZUERST (außer create/edit die bleiben vor show)
     Route::get('/', [ScheduledJobController::class, 'index'])->name('index');
     Route::get('create', [ScheduledJobController::class, 'create'])->name('create');
     Route::post('/', [ScheduledJobController::class, 'store'])->name('store');
     Route::get('{scheduledJob}/edit', [ScheduledJobController::class, 'edit'])->name('edit');
     Route::put('{scheduledJob}', [ScheduledJobController::class, 'update'])->name('update');
     Route::delete('{scheduledJob}', [ScheduledJobController::class, 'destroy'])->name('destroy');
+
+    // Custom routes NACH den Resource-Routes (spezifischere Routen)
+    Route::post('{scheduledJob}/toggle', [ScheduledJobController::class, 'toggle'])->name('toggle');
 });
+
+// Worker Status außerhalb der Gruppe (eigener Pfad)
+Route::get('/homeassistant/queue/worker-status', [ScheduledJobController::class, 'workerStatus'])->name('scheduled-jobs.worker-status');
 
 Route::get('/homeassistant', [HomeAssistantController::class, 'dashboard'])
     ->name('homeassistant.dashboard');
