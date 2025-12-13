@@ -13,16 +13,11 @@ use Illuminate\Support\Facades\Artisan;
 class ScheduledJobController extends Controller
 {
     public function index(Request $request) {
-    \Log::info('=== START ===');
-
     try {
-        // Schritt 1
-        \Log::info('Loading scheduled jobs...');
+        // Jobs-Pagination (verwendet 'page')
         $scheduledJobs = ScheduledJob::orderBy('next_run_at')->paginate(15);
-        \Log::info('Scheduled jobs loaded', ['count' => $scheduledJobs->count()]);
 
-        // Schritt 2
-        \Log::info('Loading queue jobs...');
+        // Queue Jobs laden
         $queueJobs = \DB::table('jobs')
             ->orderBy('available_at', 'asc')
             ->get()
@@ -32,32 +27,80 @@ class ScheduledJobController extends Controller
                     ->format('d.m.Y H:i:s');
                 return $job;
             });
-        \Log::info('Queue jobs loaded', ['count' => $queueJobs->count()]);
 
-        // Schritt 3
-        \Log::info('Getting Redis connection...');
         $redis = \Illuminate\Support\Facades\Redis::connection();
-        \Log::info('Redis connected');
 
-        // Schritt 4 - Entities laden (HIER IST WAHRSCHEINLICH DER FEHLER!)
-        \Log::info('Loading entities...');
-        $entities = $this->loadEntities($redis);
-        \Log::info('Entities loaded', ['count' => is_array($entities) ? count($entities) : 0]);
+        // Aus Redis laden
+        $cacheKey = 'homeassistant:entities';
+        $cacheDuration = 3000; // Sekunden
 
-        // Rest of your code...
+        $cachedData = $redis->get($cacheKey);
+        $entities = null;
+        $loadedFrom = 'cache';
+
+        if ($cachedData) {
+            $entities = json_decode($cachedData, true);
+        }
+
+        // Prüfen ob Cache leer/ungültig ist
+        if (empty($entities) || !is_array($entities) || count($entities) === 0) {
+            \Log::channel('database')->warning('HA: Redis Cache leer - lade neu');
+
+            // Neu von API laden mit HomeAssistantController
+            $api = new HomeAssistantController();
+            $entitiesResponse = $api->listEntities();
+
+            // Response parsen
+            $entities = $this->parseEntityResponse($entitiesResponse);
+
+            // In Redis speichern
+            if (!empty($entities) && is_array($entities)) {
+                $redis->setex($cacheKey, $cacheDuration, json_encode($entities));
+                \Log::channel('database')->info('HA: Entities in Redis gespeichert', [
+                    'entity_count' => count($entities),
+                ]);
+            }
+
+            $loadedFrom = 'api';
+        }
+
+        // Job laden (copy, edit oder neu)
+        if ($request->has('copy')) {
+            $originalJob = ScheduledJob::find($request->get('copy'));
+            if ($originalJob) {
+                $scheduledJob = $this->createDummyJob();
+                $scheduledJob->name = $originalJob->name . ' (Kopie)';
+                $scheduledJob->entity_id = $originalJob->entity_id;
+                $scheduledJob->action = $originalJob->action;
+                $scheduledJob->scheduled_time = $originalJob->scheduled_time;
+                $scheduledJob->weekdays = $originalJob->weekdays;
+                $scheduledJob->parameters = $originalJob->parameters;
+                $scheduledJob->is_repeating = $originalJob->is_repeating;
+            } else {
+                $scheduledJob = $this->createDummyJob();
+            }
+        } elseif ($request->has('edit')) {
+            $scheduledJob = ScheduledJob::find($request->get('edit'));
+            if (!$scheduledJob) {
+                $scheduledJob = $this->createDummyJob();
+            }
+        } else {
+            $scheduledJob = $this->createDummyJob();
+        }
+
+        // Logs-Pagination (verwendet 'logs_page')
+        $logs = Logs::orderBy('created_at', 'desc')->paginate(15, ['*'], 'logs_page');
+
+        return view('homeassistant.scheduled-jobs', compact('scheduledJobs', 'scheduledJob', 'entities', 'queueJobs', 'logs'));
 
     } catch (\Exception $e) {
-        \Log::error('ERROR in index()', [
+        \Log::channel('database')->error('ERROR in ScheduledJobController::index', [
             'message' => $e->getMessage(),
             'file' => $e->getFile(),
             'line' => $e->getLine(),
-            'trace' => $e->getTraceAsString()
         ]);
 
-        // Return error to user
-        return response()->json([
-            'error' => $e->getMessage()
-        ], 500);
+        return response('Error: ' . $e->getMessage(), 500);
     }
 }
 
