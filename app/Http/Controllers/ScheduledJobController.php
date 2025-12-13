@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Artisan;
 class ScheduledJobController extends Controller
 {
     public function index(Request $request) {
-
+     return "hi";
      \Log::info('=== ScheduledJobController::index START ===');
       try {
         // Jobs-Pagination (verwendet 'page')
