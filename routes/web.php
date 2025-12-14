@@ -6,6 +6,7 @@ use App\Http\Controllers\HomeAssistantController;
 use App\Http\Controllers\DeployController;
 use App\Http\Controllers\HomeAssistantWebServiceController;
 use App\Http\Controllers\ScheduledJobController;
+use App\Livewire\DashboardManager;
 
 
 Route::get('/', function () {
@@ -63,6 +64,10 @@ Route::middleware(['auth'])->group(function () {
     return view('homeassistant.deploy');
     })->name('deploy.page');
 });
+
+Route::get('/dashboard2', function () {
+    return view('homeassistant.dashboard2');
+})->name('dashboard2');
 
 
 Route::prefix('homeassistant/scheduled-jobs')->name('scheduled-jobs.')->group(function () {

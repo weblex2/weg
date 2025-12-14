@@ -15,6 +15,8 @@
     @stack('styles')
     @livewireStyles
 
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+
     <style>
         /* Navigation Styles */
         .main-nav {
