@@ -29,6 +29,7 @@ Route::controller(EmailController::class)->group(function () {
 
 Route::prefix('homeassistant')->group(function () {
     Route::post('/dashboard/save', [HomeAssistantController::class, 'saveDashboard']);
+    Route::get('/list', [HomeAssistantController::class, 'listEntities']);
     Route::get('/dashboard/load', [HomeAssistantController::class, 'loadDashboard']);
     Route::get('/dashboard', [HomeAssistantController::class, 'dashboard']);
     Route::get('switches', [App\Http\Controllers\HomeAssistantController::class, 'listSwitches']);
