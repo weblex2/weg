@@ -25,6 +25,18 @@ Route::get('/homeassistant/websocket/stream', [WebSocketStreamController::class,
 /* Route::get('/homeassistant/websocket/test', [WebSocketStreamController::class, 'test'])
     ->name('homeassistant.websocket.test'); */
 
+use App\Http\Controllers\ArtisanController;
+
+Route::prefix('admin')
+    ->group(function () {
+        Route::get('/artisan', function () {
+            return view('admin.artisan');
+        })->name('admin.artisan');
+
+        Route::post('/artisan/run/{command}', [ArtisanController::class, 'run'])
+            ->name('admin.artisan.run');
+    });
+
 Route::middleware([
     'auth:sanctum',
     config('jetstream.auth_session'),

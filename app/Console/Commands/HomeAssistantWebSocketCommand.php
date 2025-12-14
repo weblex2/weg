@@ -18,7 +18,7 @@ class HomeAssistantWebSocketCommand extends Command
     {
         $filters = $this->option('filter');
 
-        $this->info('Starte Home Assistant WebSocket Listener...');
+        $this->info(date('Y-m-d H:i:s'). ' - Starte Home Assistant WebSocket Listener...');
 
         if (!empty($filters)) {
             $this->info('Filter aktiv: ' . implode(', ', $filters));
