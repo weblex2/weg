@@ -17,6 +17,11 @@
                     <i class="mr-2 fas fa-gauge-high"></i>
                     Dashboard
                 </a>
+                <a href="{{ route('homeassistant.dashboard2') }}"
+                    class="nav-link flex items-center px-4 py-3 text-white rounded-lg hover:bg-white hover:bg-opacity-10 {{ request()->routeIs('homeassistant.dashboard2') ? 'active' : '' }}">
+                    <i class="mr-3 fas fa-gauge-high"></i>
+                    Dashboard2
+                </a>
                 <a href="{{ route('homeassistant.monitor') }}"
                     class="nav-link flex items-center px-4 py-2 text-white rounded-lg hover:bg-white hover:bg-opacity-10 {{ request()->routeIs('homeassistant.monitor') ? 'active' : '' }}">
                     <i class="mr-2 fas fa-desktop"></i>
@@ -42,6 +47,11 @@
                     class="nav-link flex items-center px-4 py-3 text-white rounded-lg hover:bg-white hover:bg-opacity-10 {{ request()->routeIs('homeassistant.dashboard') ? 'active' : '' }}">
                     <i class="mr-3 fas fa-gauge-high"></i>
                     Dashboard
+                </a>
+                <a href="{{ route('homeassistant.dashboard2') }}"
+                    class="nav-link flex items-center px-4 py-3 text-white rounded-lg hover:bg-white hover:bg-opacity-10 {{ request()->routeIs('homeassistant.dashboard2') ? 'active' : '' }}">
+                    <i class="mr-3 fas fa-gauge-high"></i>
+                    Dashboard2
                 </a>
                 <a href="{{ route('homeassistant.monitor') }}"
                     class="nav-link flex items-center px-4 py-3 text-white rounded-lg hover:bg-white hover:bg-opacity-10 {{ request()->routeIs('homeassistant.monitor') ? 'active' : '' }}">

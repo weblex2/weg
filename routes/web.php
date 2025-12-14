@@ -7,11 +7,23 @@ use App\Http\Controllers\DeployController;
 use App\Http\Controllers\HomeAssistantWebServiceController;
 use App\Http\Controllers\ScheduledJobController;
 use App\Livewire\DashboardManager;
+use App\Http\Controllers\WebSocketStreamController;
+
+
 
 
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::get('/homeassistant/websocket/events', [WebSocketStreamController::class, 'index'])
+    ->name('homeassistant.websocket.events');
+
+Route::get('/homeassistant/websocket/stream', [WebSocketStreamController::class, 'stream'])
+    ->name('homeassistant.websocket.stream');
+
+/* Route::get('/homeassistant/websocket/test', [WebSocketStreamController::class, 'test'])
+    ->name('homeassistant.websocket.test'); */
 
 Route::middleware([
     'auth:sanctum',
@@ -65,9 +77,9 @@ Route::middleware(['auth'])->group(function () {
     })->name('deploy.page');
 });
 
-Route::get('/dashboard2', function () {
+Route::get('/homeassistant/dashboard2', function () {
     return view('homeassistant.dashboard2');
-})->name('dashboard2');
+})->name('homeassistant.dashboard2');
 
 
 Route::prefix('homeassistant/scheduled-jobs')->name('scheduled-jobs.')->group(function () {
