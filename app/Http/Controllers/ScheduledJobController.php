@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Artisan;
 class ScheduledJobController extends Controller
 {
     public function index(Request $request) {
+
     try {
         // Jobs-Pagination (verwendet 'page')
         $scheduledJobs = ScheduledJob::orderBy('next_run_at')->paginate(15);
@@ -35,6 +36,7 @@ class ScheduledJobController extends Controller
         $cacheDuration = 3000; // Sekunden
 
         $cachedData = $redis->get($cacheKey);
+        dd($cachedData);
         $entities = null;
         $loadedFrom = 'cache';
 
