@@ -36,7 +36,6 @@ class ScheduledJobController extends Controller
         $cacheDuration = 3000; // Sekunden
 
         $cachedData = $redis->get($cacheKey);
-        dd($cachedData);
         $entities = null;
         $loadedFrom = 'cache';
 
