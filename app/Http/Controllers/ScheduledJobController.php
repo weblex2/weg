@@ -36,6 +36,7 @@ class ScheduledJobController extends Controller
         $cacheDuration = 3000; // Sekunden
 
         $cachedData = $redis->get($cacheKey);
+        dd($cachedData);
         $entities = null;
         $loadedFrom = 'cache';
 
@@ -46,7 +47,7 @@ class ScheduledJobController extends Controller
         // Prüfen ob Cache leer/ungültig ist
         if (empty($entities) || !is_array($entities) || count($entities) === 0) {
             \Log::channel('database')->warning('HA: Redis Cache leer - lade neu');
-            dd('redis is leer');
+            dd('Wir landen hier');
             // Neu von API laden mit HomeAssistantController
             $api = new HomeAssistantController();
             $entitiesResponse = $api->listEntities();
