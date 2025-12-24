@@ -42,9 +42,11 @@ class ScheduledJobController extends Controller
         if ($cachedData) {
             $entities = json_decode($cachedData, true);
         }
-        dd('hier');
+
         // Prüfen ob Cache leer/ungültig ist
         if (empty($entities) || !is_array($entities) || count($entities) === 0) {
+
+            dd('hier');
             \Log::channel('database')->warning('HA: Redis Cache leer - lade neu');
             // Neu von API laden mit HomeAssistantController
             $api = new HomeAssistantController();
