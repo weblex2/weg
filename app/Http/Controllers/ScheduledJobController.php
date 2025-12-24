@@ -44,7 +44,7 @@ class ScheduledJobController extends Controller
         }
 
         // Prüfen ob Cache leer/ungültig ist
-        if (empty($entities) || !is_array($entities) || count($entities) === 0) {
+        /* if (empty($entities) || !is_array($entities) || count($entities) === 0) {
             \Log::channel('database')->warning('HA: Redis Cache leer - lade neu');
             // Neu von API laden mit HomeAssistantController
             $api = new HomeAssistantController();
@@ -62,7 +62,7 @@ class ScheduledJobController extends Controller
             }
 
             $loadedFrom = 'api';
-        }
+        } */
 
         // Job laden (copy, edit oder neu)
         if ($request->has('copy')) {
