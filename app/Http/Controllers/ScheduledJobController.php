@@ -120,7 +120,7 @@ class ScheduledJobController extends Controller
     'scheduledJobs_type' => gettype($scheduledJobs ?? null),
     'entities_count' => is_array($entities) ? count($entities) : 'not array'
 ]);
-         dd ('hier');
+        
         return view('homeassistant.scheduled-jobs', compact('scheduledJobs', 'scheduledJob', 'entities', 'queueJobs', 'logs'));
 
     } catch (\Exception $e) {

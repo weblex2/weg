@@ -532,7 +532,7 @@
 
     </div>
 
-    <script>
+    {{-- <script>
         function switchTab(tab) {
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.add('tab-hidden');
@@ -742,5 +742,5 @@
                 button.textContent = 'Aktualisieren';
             }
         }
-    </script>
+    </script> --}}
 </x-layout>
