@@ -67,10 +67,11 @@ class ScheduledJobController extends Controller
         }
 
         // Job laden (copy, edit oder neu)
-        dd('hier');
+
         if ($request->has('copy')) {
             $originalJob = ScheduledJob::find($request->get('copy'));
             if ($originalJob) {
+                dd('hier');
                 $scheduledJob = $this->createDummyJob();
                 $scheduledJob->name = $originalJob->name . ' (Kopie)';
                 $scheduledJob->entity_id = $originalJob->entity_id;
