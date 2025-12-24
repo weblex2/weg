@@ -46,7 +46,6 @@ class ScheduledJobController extends Controller
         // Prüfen ob Cache leer/ungültig ist
         if (empty($entities) || !is_array($entities) || count($entities) === 0) {
             \Log::channel('database')->warning('HA: Redis Cache leer - lade neu');
-            dd('Wir landen hier');
             // Neu von API laden mit HomeAssistantController
             $api = new HomeAssistantController();
             $entitiesResponse = $api->listEntities();
@@ -91,7 +90,15 @@ class ScheduledJobController extends Controller
 
         // Logs-Pagination (verwendet 'logs_page')
         $logs = Logs::orderBy('created_at', 'desc')->paginate(15, ['*'], 'logs_page');
-
+\Log::channel('database')->info('Variables check', [
+    'scheduledJobs' => isset($scheduledJobs),
+    'scheduledJob' => isset($scheduledJob),
+    'entities' => isset($entities),
+    'queueJobs' => isset($queueJobs),
+    'logs' => isset($logs),
+    'scheduledJobs_type' => gettype($scheduledJobs ?? null),
+    'entities_count' => is_array($entities) ? count($entities) : 'not array'
+]);
         return view('homeassistant.scheduled-jobs', compact('scheduledJobs', 'scheduledJob', 'entities', 'queueJobs', 'logs'));
 
     } catch (\Exception $e) {
