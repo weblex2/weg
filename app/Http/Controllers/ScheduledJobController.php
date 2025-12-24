@@ -67,29 +67,36 @@ class ScheduledJobController extends Controller
         }
 
         // Job laden (copy, edit oder neu)
-dd('hier');
-        if ($request->has('copy')) {
 
-            $originalJob = ScheduledJob::find($request->get('copy'));
-            if ($originalJob) {
-
-                $scheduledJob = $this->createDummyJob();
-                $scheduledJob->name = $originalJob->name . ' (Kopie)';
-                $scheduledJob->entity_id = $originalJob->entity_id;
-                $scheduledJob->action = $originalJob->action;
-                $scheduledJob->scheduled_time = $originalJob->scheduled_time;
-                $scheduledJob->weekdays = $originalJob->weekdays;
-                $scheduledJob->parameters = $originalJob->parameters;
-                $scheduledJob->is_repeating = $originalJob->is_repeating;
+        try {
+            if ($request->has('copy')) {
+                $originalJob = ScheduledJob::find($request->get('copy'));
+                if ($originalJob) {
+                    $scheduledJob = $this->createDummyJob();
+                    $scheduledJob->name = $originalJob->name . ' (Kopie)';
+                    $scheduledJob->entity_id = $originalJob->entity_id;
+                    $scheduledJob->action = $originalJob->action;
+                    $scheduledJob->scheduled_time = $originalJob->scheduled_time;
+                    $scheduledJob->weekdays = $originalJob->weekdays;
+                    $scheduledJob->parameters = $originalJob->parameters;
+                    $scheduledJob->is_repeating = $originalJob->is_repeating;
+                } else {
+                    $scheduledJob = $this->createDummyJob();
+                }
+            } elseif ($request->has('edit')) {
+                $scheduledJob = ScheduledJob::find($request->get('edit'));
+                if (!$scheduledJob) {
+                    $scheduledJob = $this->createDummyJob();
+                }
             } else {
                 $scheduledJob = $this->createDummyJob();
             }
-        } elseif ($request->has('edit')) {
-            $scheduledJob = ScheduledJob::find($request->get('edit'));
-            if (!$scheduledJob) {
-                $scheduledJob = $this->createDummyJob();
-            }
-        } else {
+        } catch (\Exception $e) {
+            \Log::channel('database')->error('Job loading error', [
+                'error' => $e->getMessage(),
+                'copy' => $request->get('copy'),
+                'edit' => $request->get('edit')
+            ]);
             $scheduledJob = $this->createDummyJob();
         }
 
