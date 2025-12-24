@@ -12,6 +12,7 @@ class DeviceCard extends Component
     public $state;
     public $friendlyName;
     public $isLight = false;
+    public $isSwitch = false;
 
     // Light controls
     public $brightness = 128;
@@ -22,6 +23,7 @@ class DeviceCard extends Component
     {
         $this->loadEntityState();
         $this->isLight = str_starts_with($this->entityId, 'light.');
+        $this->isSwitch = str_starts_with($this->entityId, 'switch.');
     }
 
     public function loadEntityState()

@@ -32,6 +32,11 @@
                     <i class="mr-2 fas fa-clock"></i>
                     Scheduler
                 </a>
+                <a href="{{ route('settings') }}"
+                    class="nav-link flex items-center px-4 py-2 text-white rounded-lg hover:bg-white hover:bg-opacity-10 {{ request()->routeIs('homeassistant.settings') ? 'active' : '' }}">
+                    <i class="mr-2 fa-solid fa-gear"></i>
+                    Settings
+                </a>
             </div>
 
             <!-- Mobile Menu Button -->

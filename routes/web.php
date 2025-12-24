@@ -57,6 +57,7 @@ Route::prefix('homeassistant')->group(function () {
     Route::get('/list', [HomeAssistantController::class, 'listEntities']);
     Route::get('/dashboard/load', [HomeAssistantController::class, 'loadDashboard']);
     Route::get('/dashboard', [HomeAssistantController::class, 'dashboard']);
+    Route::get('/settings', [HomeAssistantController::class, 'settings'])->name('settings');
     Route::get('switches', [App\Http\Controllers\HomeAssistantController::class, 'listSwitches']);
     Route::get('state/{entityId}', [App\Http\Controllers\HomeAssistantController::class, 'getState']);
     Route::post('turn-on/{entityId}', [App\Http\Controllers\HomeAssistantController::class, 'turnOn']);
@@ -112,6 +113,7 @@ Route::get('/homeassistant/queue/worker-status', [ScheduledJobController::class,
 
 Route::get('/homeassistant', [HomeAssistantController::class, 'dashboard'])
     ->name('homeassistant.dashboard');
+
 
 // Monitor
 Route::get('/homeassistant/monitor', [HomeAssistantController::class, 'monitor'])->name('homeassistant.monitor');

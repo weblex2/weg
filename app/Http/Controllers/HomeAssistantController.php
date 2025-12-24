@@ -504,4 +504,8 @@ class HomeAssistantController extends Controller
             'message' => 'Kein Dashboard gefunden'
         ]);
     }
+
+    public function settings(){
+        return view('homeassistant.settings');
+    }
 }
