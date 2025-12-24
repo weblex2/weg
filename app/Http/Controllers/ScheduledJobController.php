@@ -70,6 +70,15 @@ class ScheduledJobController extends Controller
 
         try {
             if ($request->has('copy')) {
+                $copyId = $request->get('copy');
+                \Log::channel('database')->info('Attempting copy', ['id' => $copyId, 'type' => gettype($copyId)]);
+
+                $originalJob = ScheduledJob::find($copyId);
+
+                \Log::channel('database')->info('Copy result', [
+                    'found' => $originalJob !== null,
+                    'job_class' => $originalJob ? get_class($originalJob) : 'null'
+                ]);
                 $originalJob = ScheduledJob::find($request->get('copy'));
                 if ($originalJob) {
                     $scheduledJob = $this->createDummyJob();
