@@ -108,7 +108,7 @@ class ScheduledJobController extends Controller
             ]);
             $scheduledJob = $this->createDummyJob();
         }
-
+        dd ('hier');
         // Logs-Pagination (verwendet 'logs_page')
         $logs = Logs::orderBy('created_at', 'desc')->paginate(15, ['*'], 'logs_page');
 \Log::channel('database')->info('Variables check', [
