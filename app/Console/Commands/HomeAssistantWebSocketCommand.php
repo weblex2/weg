@@ -25,7 +25,7 @@ class HomeAssistantWebSocketCommand extends Command
         $filters = $this->option('filter');
 
         // Konfiguration aus .env
-        $this->haUrl = env('HA_URL', 'ws://homeassistant.local:8123');
+        $this->haUrl = env('HA_URL', 'ws://192.168.178.71:8123');
         $this->haToken = env('HA_TOKEN');
 
         if (!$this->haToken) {
