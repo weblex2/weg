@@ -79,10 +79,41 @@ class Switches extends Component
         $this->dispatch('removeSwitchFromDashboard', entityId: $this->entityId);
     }
 
-    public function updateState($data)
+    public function updateState(...$params)
     {
-        if ($data['entity_id'] === $this->entityId) {
-            $this->state = $data['new_state']['state'] ?? $this->state;
+        logger()->info('Light updateState - Raw params', ['params' => $params]);
+
+        // Drei separate Parameter: entityId, state, attributes
+        if (count($params) >= 3) {
+            $entityId = $params[0];
+            $state = $params[1];
+            $attributes = $params[2];
+        } else {
+            logger()->error('Light updateState: Unexpected params', ['params' => $params]);
+            return;
+        }
+
+        logger()->info('Light updateState parsed', [
+            'this_entity' => $this->entityId,
+            'received_entity' => $entityId,
+            'state' => $state,
+            'attributes' => $attributes
+        ]);
+
+        if ($entityId !== $this->entityId) {
+            return;
+        }
+
+        logger()->info("✅ Light {$this->entityId} wird aktualisiert zu: {$state}");
+
+        $this->state = $state;
+
+        if (isset($attributes['brightness'])) {
+            $this->brightness = $attributes['brightness'];
+        }
+
+        if (isset($attributes['friendly_name'])) {
+            $this->friendlyName = $attributes['friendly_name'];
         }
     }
 

@@ -16,6 +16,40 @@
     @livewireStyles
 
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+    @livewireScripts
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.Echo) {
+                console.log('Echo verfügbar, subscribe zu home-assistant channel');
+
+                // Debug: Alle Channel-Events loggen
+                window.Echo.connector.pusher.connection.bind('state_change', function(states) {
+                    console.log('Pusher connection state:', states);
+                });
+
+                window.Echo.channel('home-assistant')
+                    .listen('.state.changed', (event) => {
+                        console.log('🔥 HA State Changed Event empfangen:', event);
+
+                        // Dispatch zu allen Livewire Components
+                        Livewire.dispatch('entityStateChanged', {
+                            entityId: event.entity_id,
+                            state: event.new_state,
+                            attributes: event.attributes || {}
+                        });
+
+                        console.log('✅ Livewire Event dispatched');
+                    })
+                    .error((error) => {
+                        console.error('❌ Channel Error:', error);
+                    });
+
+                console.log('✅ Channel subscribed');
+            } else {
+                console.error('❌ Echo ist nicht verfügbar!');
+            }
+        });
+    </script>
 
     <style>
         /* Navigation Styles */

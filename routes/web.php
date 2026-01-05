@@ -8,8 +8,29 @@ use App\Http\Controllers\HomeAssistantWebServiceController;
 use App\Http\Controllers\ScheduledJobController;
 use App\Livewire\DashboardManager;
 use App\Http\Controllers\WebSocketStreamController;
+use App\Events\HomeAssistantStateChanged;
+use App\Http\Controllers\EmailAddressController;
 
 
+Route::get('/test-broadcast', function() {
+    logger()->info('Test broadcast route aufgerufen');
+
+    $event = new HomeAssistantStateChanged([
+        'entity_id' => 'light.test',
+        'old_state' => 'off',
+        'new_state' => 'on',
+        'attributes' => ['friendly_name' => 'Test Light'],
+        'timestamp' => now()->toIso8601String()
+    ]);
+
+    logger()->info('Event erstellt', ['event' => $event]);
+
+    broadcast($event);
+
+    logger()->info('Event gebroadcastet');
+
+    return 'Event broadcasted! Check logs.';
+});
 
 
 Route::get('/', function () {
@@ -47,10 +68,19 @@ Route::middleware([
     })->name('dashboard');
 });
 
-Route::controller(EmailController::class)->group(function () {
-    Route::get('/import', 'importEmailsFromImap')->middleware(['auth'])->name('email.import');
-    Route::get('/emails', 'showMails')->middleware(['auth'])->name('email.show');
-});
+Route::resource('emails', EmailController::class);
+#Route::get('/emails/{email:id}', [EmailController::class, 'show']);
+Route::get('attachments/{attachment}/download', [EmailController::class, 'downloadAttachment'])
+    ->name('attachments.download');
+Route::get('attachments/{attachment}/view', [EmailController::class, 'viewAttachment'])
+    ->name('attachments.view');
+Route::put('emails/{email}/topics', [EmailController::class, 'updateTopics'])
+    ->name('emails.topics.update');
+
+Route::get('/email_addresses', [EmailAddressController::class, 'index'])->name('email_addresses.index');
+Route::post('/email_addresses', [EmailAddressController::class, 'store'])->name('email_addresses.store');
+Route::delete('/email_addresses/{email}', [EmailAddressController::class, 'destroy'])->name('email_addresses.destroy');
+
 
 Route::prefix('homeassistant')->group(function () {
     Route::post('/dashboard/save', [HomeAssistantController::class, 'saveDashboard']);

@@ -5,7 +5,10 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Broadcast;
 use WebSocket\Client;
+use WebSocket\ConnectionException;
+use App\Events\HomeAssistantStateChanged;
 
 class HomeAssistantWebSocketCommand extends Command
 {
@@ -17,14 +20,16 @@ class HomeAssistantWebSocketCommand extends Command
     protected $haUrl;
     protected $haToken;
     protected $lastPingTime;
+    protected $lastReceiveTime;
     protected $reconnectAttempts = 0;
     protected $maxReconnectAttempts = 5;
+    protected $pingInterval = 30;
+    protected $receiveTimeout = 60; // Wenn 60s nichts empfangen, reconnect
 
     public function handle()
     {
         $filters = $this->option('filter');
 
-        // Konfiguration aus .env
         $this->haUrl = env('HA_URL', 'ws://192.168.178.71:8123');
         $this->haToken = env('HA_TOKEN');
 
@@ -39,51 +44,67 @@ class HomeAssistantWebSocketCommand extends Command
             $this->info('Filter aktiv: ' . implode(', ', $filters));
         }
 
-        try {
-            $this->connect();
-            $this->authenticate();
-            $this->subscribeToStateChanges();
-            $this->listen($filters);
-        } catch (\Exception $e) {
-            $this->error('Fehler: ' . $e->getMessage());
-            Log::error('WebSocket Error', ['error' => $e->getMessage()]);
-            return 1;
+        // Hauptloop mit automatischem Reconnect
+        while (true) {
+            try {
+                $this->connect();
+                $this->authenticate();
+                $this->subscribeToStateChanges();
+                $this->listen($filters);
+            } catch (\Exception $e) {
+                $this->error('Fehler: ' . $e->getMessage());
+                Log::error('WebSocket Error', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+
+                if ($this->reconnectAttempts >= $this->maxReconnectAttempts) {
+                    $this->error('Max Reconnect-Versuche erreicht. Beende...');
+                    return 1;
+                }
+
+                $this->handleReconnect();
+            }
         }
 
         return 0;
     }
 
-    /**
-     * Verbindung zum WebSocket herstellen
-     */
     protected function connect()
     {
+        // Alte Verbindung schließen falls vorhanden
+        if ($this->client) {
+            try {
+                $this->client->close();
+            } catch (\Exception $e) {
+                // Ignorieren
+            }
+        }
+
         $wsUrl = str_replace(['http://', 'https://'], ['ws://', 'wss://'], $this->haUrl);
         $wsUrl = rtrim($wsUrl, '/') . '/api/websocket';
 
         $this->info("Verbinde zu: {$wsUrl}");
 
         $this->client = new Client($wsUrl, [
-            'timeout' => 300,  // 5 Minuten Timeout
+            'timeout' => 5,  // Kurzer Timeout für non-blocking receive
             'fragment_size' => 4096,
-            'persistent' => true,
+            'persistent' => false, // Nicht persistent, um saubere Reconnects zu ermöglichen
         ]);
 
         // Erste Nachricht empfangen (auth_required)
-        $response = $this->receive();
+        $response = $this->receive(10); // 10s Timeout für auth_required
 
-        if ($response['type'] !== 'auth_required') {
+        if (!$response || $response['type'] !== 'auth_required') {
             throw new \Exception('Unerwartete Antwort: ' . json_encode($response));
         }
 
         $this->info('✓ Verbindung hergestellt');
         $this->lastPingTime = time();
+        $this->lastReceiveTime = time();
         $this->reconnectAttempts = 0;
     }
 
-    /**
-     * Authentifizierung
-     */
     protected function authenticate()
     {
         $this->send([
@@ -91,18 +112,15 @@ class HomeAssistantWebSocketCommand extends Command
             'access_token' => $this->haToken
         ]);
 
-        $response = $this->receive();
+        $response = $this->receive(10);
 
-        if ($response['type'] !== 'auth_ok') {
+        if (!$response || $response['type'] !== 'auth_ok') {
             throw new \Exception('Authentifizierung fehlgeschlagen: ' . json_encode($response));
         }
 
         $this->info('✓ Authentifizierung erfolgreich');
     }
 
-    /**
-     * State Changes abonnieren
-     */
     protected function subscribeToStateChanges()
     {
         $this->send([
@@ -111,9 +129,9 @@ class HomeAssistantWebSocketCommand extends Command
             'event_type' => 'state_changed'
         ]);
 
-        $response = $this->receive();
+        $response = $this->receive(10);
 
-        if (!isset($response['success']) || !$response['success']) {
+        if (!$response || !isset($response['success']) || !$response['success']) {
             throw new \Exception('Subscription fehlgeschlagen: ' . json_encode($response));
         }
 
@@ -122,28 +140,41 @@ class HomeAssistantWebSocketCommand extends Command
         $this->line('');
     }
 
-    /**
-     * Event Loop - Empfange und verarbeite Nachrichten
-     */
     protected function listen(array $filters)
     {
         while (true) {
+            // Connection Health Check
+            $now = time();
+
+            // Ping senden wenn nötig
+            if ($now - $this->lastPingTime > $this->pingInterval) {
+                $this->sendPing();
+                $this->lastPingTime = $now;
+            }
+
+            // Prüfe ob Verbindung tot ist (nichts empfangen seit receiveTimeout)
+            if ($now - $this->lastReceiveTime > $this->receiveTimeout) {
+                throw new \Exception('Keine Daten empfangen seit ' . $this->receiveTimeout . 's - Verbindung tot');
+            }
+
             try {
-                // Ping senden wenn länger als 30 Sekunden keine Aktivität
-                if (time() - $this->lastPingTime > 30) {
-                    $this->sendPing();
-                    $this->lastPingTime = time();
-                }
+                // Receive mit kurzem Timeout (non-blocking)
+                $message = $this->receive(1);
 
-                $message = $this->receive();
-                $this->lastPingTime = time();
-
-                // Pong-Response ignorieren
-                if ($message['type'] === 'pong') {
+                if ($message === null) {
+                    // Timeout ist OK, einfach weitermachen
                     continue;
                 }
 
-                // Nur Events verarbeiten
+                $this->lastReceiveTime = $now;
+
+                // Pong-Response
+                if ($message['type'] === 'pong') {
+                    $this->line('<fg=gray>[' . now()->format('H:i:s') . '] Pong empfangen</>');
+                    continue;
+                }
+
+                // Events verarbeiten
                 if ($message['type'] === 'event' && isset($message['event'])) {
                     $event = $message['event'];
 
@@ -152,35 +183,12 @@ class HomeAssistantWebSocketCommand extends Command
                     }
                 }
 
-            } catch (\Exception $e) {
-                $this->error('Fehler beim Empfangen: ' . $e->getMessage());
-
-                if ($this->reconnectAttempts >= $this->maxReconnectAttempts) {
-                    $this->error('Max Reconnect-Versuche erreicht. Beende...');
-                    return;
-                }
-
-                $this->reconnectAttempts++;
-                $waitTime = min(5 * $this->reconnectAttempts, 30);
-
-                $this->warn("Versuche Reconnect #{$this->reconnectAttempts} in {$waitTime} Sekunden...");
-                sleep($waitTime);
-
-                try {
-                    $this->connect();
-                    $this->authenticate();
-                    $this->subscribeToStateChanges();
-                    $this->info('✓ Reconnect erfolgreich!');
-                } catch (\Exception $reconnectError) {
-                    $this->error('Reconnect fehlgeschlagen: ' . $reconnectError->getMessage());
-                }
+            } catch (ConnectionException $e) {
+                throw new \Exception('Connection Exception: ' . $e->getMessage());
             }
         }
     }
 
-    /**
-     * State Change verarbeiten
-     */
     protected function handleStateChange(array $data, array $filters)
     {
         $entityId = $data['entity_id'];
@@ -192,18 +200,15 @@ class HomeAssistantWebSocketCommand extends Command
             return;
         }
 
-        // Ignoriere wenn sich nur Metadaten geändert haben, nicht der State
+        // Ignoriere wenn sich nur Metadaten geändert haben
         if ($oldState === $newState) {
-            // Optional: Prüfe auch wichtige Attribute
             $oldAttrs = $data['old_state']['attributes'] ?? [];
             $newAttrs = $data['new_state']['attributes'] ?? [];
 
-            // Wenn auch Attribute gleich sind, ignorieren
             if ($this->attributesUnchanged($oldAttrs, $newAttrs)) {
                 return;
             }
 
-            // Wenn nur State gleich aber wichtige Attribute geändert, zeige es an
             $this->line(sprintf(
                 '<fg=cyan>[%s]</> <fg=yellow>%s</> <fg=magenta>(Attribute geändert)</>',
                 now()->format('H:i:s'),
@@ -221,25 +226,31 @@ class HomeAssistantWebSocketCommand extends Command
             $newState
         ));
 
-        // Attributes anzeigen (optional)
+        // Attributes anzeigen
         $attributes = $data['new_state']['attributes'] ?? [];
         if (!empty($attributes) && isset($attributes['friendly_name'])) {
             $this->line('  └─ ' . $attributes['friendly_name']);
         }
 
-        // Im Cache speichern für Live-Updates
+        // Im Cache speichern
         Cache::put("ha_state:{$entityId}", $data['new_state'], now()->addMinutes(5));
 
         // Events speichern
         $this->storeEvent($entityId, $oldState, $newState, $data['new_state']);
 
+        // LIVE-UPDATE: Event an Frontend senden
+        broadcast(new HomeAssistantStateChanged([
+            'entity_id' => $entityId,
+            'old_state' => $oldState,
+            'new_state' => $newState,
+            'attributes' => $data['new_state']['attributes'] ?? [],
+            'timestamp' => now()->toIso8601String()
+        ]))->toOthers();
+
         // Custom Actions
         $this->handleCustomActions($entityId, $oldState, $newState, $data['new_state']);
     }
 
-    /**
-     * Prüfe ob Entity ID zum Filter passt
-     */
     protected function matchesFilter(string $entityId, array $filters): bool
     {
         foreach ($filters as $filter) {
@@ -251,12 +262,8 @@ class HomeAssistantWebSocketCommand extends Command
         return false;
     }
 
-    /**
-     * Prüfe ob wichtige Attribute sich geändert haben
-     */
     protected function attributesUnchanged(array $oldAttrs, array $newAttrs): bool
     {
-        // Liste wichtiger Attribute die Änderungen triggern sollten
         $importantKeys = [
             'brightness',
             'temperature',
@@ -276,16 +283,13 @@ class HomeAssistantWebSocketCommand extends Command
             $newVal = $newAttrs[$key] ?? null;
 
             if ($oldVal !== $newVal) {
-                return false; // Attribute haben sich geändert
+                return false;
             }
         }
 
-        return true; // Keine wichtigen Änderungen
+        return true;
     }
 
-    /**
-     * Events im Cache speichern
-     */
     protected function storeEvent(string $entityId, string $oldState, string $newState, array $fullState)
     {
         $events = Cache::get('ha_websocket_events', []);
@@ -299,7 +303,6 @@ class HomeAssistantWebSocketCommand extends Command
             'timestamp' => now()->toIso8601String()
         ];
 
-        // Nur die letzten 50 Events behalten
         if (count($events) > 50) {
             $events = array_slice($events, -50, 50, true);
         }
@@ -307,23 +310,16 @@ class HomeAssistantWebSocketCommand extends Command
         Cache::put('ha_websocket_events', $events, now()->addMinutes(5));
     }
 
-    /**
-     * Custom Actions basierend auf State Changes
-     */
     protected function handleCustomActions(string $entityId, string $oldState, string $newState, array $fullState)
     {
-        // Beispiel: Logging bei Lichtern
         if (str_starts_with($entityId, 'light.') && $newState === 'on') {
             Log::info("Licht eingeschaltet: {$entityId}");
         }
 
-        // Beispiel: Warnung bei Sensoren
         if (str_starts_with($entityId, 'binary_sensor.') && $newState === 'on') {
             Log::warning("Sensor aktiviert: {$entityId}");
-            // Hier Notification senden...
         }
 
-        // Beispiel: Temperatur-Monitoring
         if (str_starts_with($entityId, 'sensor.') && isset($fullState['attributes']['unit_of_measurement'])) {
             if ($fullState['attributes']['unit_of_measurement'] === '°C') {
                 $temp = (float) $newState;
@@ -334,32 +330,61 @@ class HomeAssistantWebSocketCommand extends Command
         }
     }
 
-    /**
-     * Nachricht senden
-     */
     protected function send(array $data)
     {
         $json = json_encode($data);
-        $this->client->send($json);
+        try {
+            $this->client->send($json);
+        } catch (\Exception $e) {
+            throw new \Exception('Send failed: ' . $e->getMessage());
+        }
     }
 
     /**
-     * Nachricht empfangen
+     * Nachricht empfangen mit Timeout
+     * @return array|null
      */
-    protected function receive(): array
+    protected function receive(?int $timeout = null): ?array
     {
-        $message = $this->client->receive();
-        return json_decode($message, true);
+        try {
+            $message = $this->client->receive();
+
+            if (empty($message)) {
+                return null;
+            }
+
+            return json_decode($message, true);
+        } catch (\WebSocket\TimeoutException $e) {
+            // Timeout ist OK - return null
+            return null;
+        } catch (\Exception $e) {
+            // Andere Fehler werfen
+            throw $e;
+        }
     }
 
-    /**
-     * Ping senden um Verbindung am Leben zu halten
-     */
     protected function sendPing()
     {
-        $this->send([
-            'id' => $this->messageId++,
-            'type' => 'ping'
-        ]);
+        try {
+            $this->send([
+                'id' => $this->messageId++,
+                'type' => 'ping'
+            ]);
+            $this->line('<fg=gray>[' . now()->format('H:i:s') . '] Ping gesendet</>');
+        } catch (\Exception $e) {
+            throw new \Exception('Ping failed: ' . $e->getMessage());
+        }
+    }
+
+    protected function handleReconnect()
+    {
+        $this->reconnectAttempts++;
+        $waitTime = min(5 * $this->reconnectAttempts, 30);
+
+        $this->warn("Reconnect-Versuch #{$this->reconnectAttempts} in {$waitTime} Sekunden...");
+        sleep($waitTime);
+
+        // messageId zurücksetzen für neue Verbindung
+        $this->messageId = 1;
     }
 }

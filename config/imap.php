@@ -3,17 +3,15 @@
 return [
 
     'default' => 'default',
-
     'accounts' => [
-
         'default' => [
-            'host'          => env('IMAP_HOST', 'imap.strato.de'),
-            'port'          => env('IMAP_PORT', 993),
-            'encryption'    => env('IMAP_ENCRYPTION', 'ssl'),
-            'validate_cert' => env('IMAP_VALIDATE_CERT', true),
-            'username'      => env('IMAP_USERNAME', 'alex@noppenberger.org'),
-            'password'      => env('IMAP_PASSWORD', '!Cyberbob03'),
-            'protocol'      => env('IMAP_PROTOCOL', 'imap')
+            'host'          => 'imap.strato.de',
+            'port'          => 993,
+            'encryption'    => 'ssl',
+            'validate_cert' => true,
+            'username'      => 'alex@noppenberger.org',
+            'password'      => '!Cyberbob498712',
+            'protocol'      => 'imap'
         ],
 
     ],

@@ -4,9 +4,6 @@
         <i class="fas fa-times"></i>
     </button>
 
-
-
-
     @if ($isLight)
         <livewire:ha.light :entity-id="$entityId" :key="$friendlyName" />
     @elseif($isSwitch)
@@ -28,6 +25,30 @@
             <p class="mt-2 text-sm">
                 Status: <span class="font-semibold">{{ $state }}</span>
             </p>
+
+            <!-- Zusätzliche Attribute anzeigen -->
+            @if (!empty($entityAttributes))
+                <div class="pt-4 mt-4 text-left border-t border-gray-200">
+                    @if (isset($entityAttributes['brightness']))
+                        <p class="text-sm text-gray-600">
+                            Helligkeit: <span
+                                class="font-medium">{{ round(($entityAttributes['brightness'] / 255) * 100) }}%</span>
+                        </p>
+                    @endif
+
+                    @if (isset($entityAttributes['temperature']))
+                        <p class="text-sm text-gray-600">
+                            Temperatur: <span class="font-medium">{{ $entityAttributes['temperature'] }}°C</span>
+                        </p>
+                    @endif
+
+                    @if (isset($entityAttributes['humidity']))
+                        <p class="text-sm text-gray-600">
+                            Luftfeuchtigkeit: <span class="font-medium">{{ $entityAttributes['humidity'] }}%</span>
+                        </p>
+                    @endif
+                </div>
+            @endif
         </div>
     @endif
 

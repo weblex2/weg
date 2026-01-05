@@ -5,6 +5,7 @@ namespace App\Livewire;
 use Livewire\Component;
 use App\Models\Dashboard;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
 
 class DashboardManager extends Component
 {
@@ -19,7 +20,10 @@ class DashboardManager extends Component
     public $currentArea = 'all';
     public $selectedAreaText = 'Alle Bereiche';
 
-    protected $listeners = ['refreshDashboard' => '$refresh'];
+    protected $listeners = [
+        'refreshDashboard' => '$refresh',
+        'echo:home-assistant,state.changed' => 'handleStateChange'
+    ];
 
     public function mount()
     {
@@ -27,9 +31,47 @@ class DashboardManager extends Component
         $this->loadSavedDashboard();
     }
 
+    /**
+     * Wird aufgerufen wenn WebSocket ein State Change Event sendet
+     */
+    public function handleStateChange($event)
+    {
+        $entityId = $event['entity_id'];
+
+        // Prüfe ob Entity im Dashboard ist
+        if (!in_array($entityId, $this->dashboardLayout)) {
+            return;
+        }
+
+        // Aktualisiere Cache
+        Cache::put("ha_state:{$entityId}", [
+            'state' => $event['new_state'],
+            'attributes' => $event['attributes']
+        ], now()->addMinutes(5));
+
+        // Aktualisiere switches Array wenn Entity dort ist
+        $switchIndex = collect($this->switches)->search(function ($switch) use ($entityId) {
+            return $switch['entity_id'] === $entityId;
+        });
+
+        if ($switchIndex !== false) {
+            $this->switches[$switchIndex]['state'] = $event['new_state'];
+            $this->switches[$switchIndex]['attributes'] = array_merge(
+                $this->switches[$switchIndex]['attributes'] ?? [],
+                $event['attributes']
+            );
+        }
+
+        // Dispatch Event an DeviceCard Komponenten
+        $this->dispatch('entityStateChanged',
+            entityId: $entityId,
+            state: $event['new_state'],
+            attributes: $event['attributes']
+        )->to('device-card');
+    }
+
     public function loadHomeAssistantData()
     {
-        // Hier deine Home Assistant API Logik
         try {
             $haUrl = config('homeassistant.url');
             $haToken = config('homeassistant.token');
@@ -53,7 +95,6 @@ class DashboardManager extends Component
 
             $allStates = $response->json();
 
-            // Filter nur relevante Entities
             $this->switches = collect($allStates)->filter(function ($entity) {
                 $domain = explode('.', $entity['entity_id'])[0];
                 return in_array($domain, [
@@ -75,7 +116,6 @@ class DashboardManager extends Component
 
     public function loadAreas()
     {
-        // Lade Bereiche aus Home Assistant
         try {
             $haUrl = config('homeassistant.url');
             $haToken = config('homeassistant.token');
@@ -94,7 +134,6 @@ class DashboardManager extends Component
             if ($response->successful()) {
                 $this->areas = collect($response->json())->pluck('name')->toArray();
 
-                // Zähle Geräte pro Bereich
                 $this->areasWithCount = collect($this->areas)->map(function ($area) {
                     $count = collect($this->switches)->filter(function ($switch) use ($area) {
                         return ($switch['area_name'] ?? '') === $area;
@@ -117,8 +156,6 @@ class DashboardManager extends Component
 
     public function getAreaName($entityId)
     {
-        // Logik um Area Name für Entity zu bekommen
-        // Dies müsste angepasst werden basierend auf deiner HA Konfiguration
         return '';
     }
 
@@ -158,16 +195,13 @@ class DashboardManager extends Component
             $areaName = strtolower($switch['area_name'] ?? '');
             $searchLower = strtolower($this->searchQuery);
 
-            // Search Filter
             $matchesSearch = empty($searchLower) ||
                 str_contains($friendlyName, $searchLower) ||
                 str_contains($entityId, $searchLower);
 
-            // Type Filter
             $matchesType = $this->currentEntityType === 'all' ||
                 str_starts_with($entityId, $this->currentEntityType . '.');
 
-            // Area Filter
             $matchesArea = $this->currentArea === 'all' ||
                 $areaName === strtolower($this->currentArea);
 
@@ -192,7 +226,9 @@ class DashboardManager extends Component
     public function toggleSwitch($entityId)
     {
         try {
-            $response = Http::post(
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . config('homeassistant.token'),
+            ])->post(
                 config('homeassistant.url') . '/api/services/homeassistant/toggle',
                 ['entity_id' => $entityId]
             );
@@ -211,7 +247,9 @@ class DashboardManager extends Component
     public function getEntityState($entityId)
     {
         try {
-            $response = Http::get(config('homeassistant.url') . '/api/states/' . $entityId);
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . config('homeassistant.token'),
+            ])->get(config('homeassistant.url') . '/api/states/' . $entityId);
 
             if ($response->successful()) {
                 return [
@@ -229,7 +267,9 @@ class DashboardManager extends Component
     public function setBrightness($entityId, $brightness)
     {
         try {
-            $response = Http::post(
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . config('homeassistant.token'),
+            ])->post(
                 config('homeassistant.url') . '/api/services/light/turn_on',
                 [
                     'entity_id' => $entityId,
@@ -246,7 +286,9 @@ class DashboardManager extends Component
     public function setColorTemp($entityId, $kelvin)
     {
         try {
-            $response = Http::post(
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . config('homeassistant.token'),
+            ])->post(
                 config('homeassistant.url') . '/api/services/light/turn_on',
                 [
                     'entity_id' => $entityId,
@@ -263,7 +305,9 @@ class DashboardManager extends Component
     public function setColor($entityId, $rgbColor)
     {
         try {
-            $response = Http::post(
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . config('homeassistant.token'),
+            ])->post(
                 config('homeassistant.url') . '/api/services/light/turn_on',
                 [
                     'entity_id' => $entityId,

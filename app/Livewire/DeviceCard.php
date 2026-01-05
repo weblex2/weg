@@ -3,124 +3,155 @@
 namespace App\Livewire;
 
 use Livewire\Component;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class DeviceCard extends Component
 {
     public $entityId;
-    public $entity = null;
     public $state;
+    public $entityAttributes = []; // Renamed from $attributes
     public $friendlyName;
     public $isLight = false;
     public $isSwitch = false;
 
-    // Light controls
-    public $brightness = 128;
-    public $colorTemp = 4000;
-    public $rgbColor = '#ffffff';
+    protected $listeners = ['entityStateChanged'];
 
-    public function mount()
+    public function mount($entityId)
     {
-        $this->loadEntityState();
+        $this->entityId = $entityId;
+        $this->loadState();
+        $this->determineType();
+    }
+
+    public function determineType()
+    {
         $this->isLight = str_starts_with($this->entityId, 'light.');
         $this->isSwitch = str_starts_with($this->entityId, 'switch.');
     }
 
-    public function loadEntityState()
+    public function loadState()
+    {
+        // Versuche zuerst aus Cache zu laden
+        $cached = Cache::get("ha_state:{$this->entityId}");
+
+        if ($cached) {
+            $this->state = $cached['state'] ?? 'unknown';
+            $this->entityAttributes = $cached['attributes'] ?? [];
+        } else {
+            // Fallback: Lade von Home Assistant API
+            $this->refreshFromApi();
+        }
+
+        $this->friendlyName = $this->entityAttributes['friendly_name'] ?? $this->entityId;
+    }
+
+    public function refreshFromApi()
     {
         try {
-            $response = Http::get(config('homeassistant.url') . '/api/states/' . $this->entityId);
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . config('homeassistant.token'),
+            ])->get(config('homeassistant.url') . '/api/states/' . $this->entityId);
 
             if ($response->successful()) {
-                $this->entity = $response->json();
-                $this->state = $this->entity['state'];
-                $this->friendlyName = $this->entity['attributes']['friendly_name'] ?? $this->entityId;
+                $data = $response->json();
+                $this->state = $data['state'];
+                $this->entityAttributes = $data['attributes'] ?? [];
 
-                // Load light attributes
-                if ($this->isLight && $this->state === 'on') {
-                    $this->brightness = $this->entity['attributes']['brightness'] ?? 128;
-                    $this->colorTemp = $this->entity['attributes']['color_temp_kelvin'] ?? 4000;
-
-                    if (isset($this->entity['attributes']['rgb_color'])) {
-                        $rgb = $this->entity['attributes']['rgb_color'];
-                        $this->rgbColor = sprintf('#%02x%02x%02x', $rgb[0], $rgb[1], $rgb[2]);
-                    }
-                }
+                // In Cache speichern
+                Cache::put("ha_state:{$this->entityId}", [
+                    'state' => $this->state,
+                    'attributes' => $this->entityAttributes
+                ], now()->addMinutes(5));
             }
         } catch (\Exception $e) {
-            $this->state = 'unavailable';
-            $this->friendlyName = $this->entityId;
+            // Fehler ignorieren oder loggen
+        }
+    }
+
+    /**
+     * Wird aufgerufen wenn WebSocket State Change empfängt
+     */
+    public function entityStateChanged(...$params)
+    {
+        logger()->info('DeviceCard entityStateChanged - Raw params', ['params' => $params]);
+
+        // Drei separate Parameter: entityId, state, attributes
+        if (count($params) >= 3) {
+            $entityId = $params[0];
+            $state = $params[1];
+            $attributes = $params[2];
+        }
+        // Als Array
+        elseif (count($params) === 1 && is_array($params[0])) {
+            $data = $params[0];
+            $entityId = $data['entityId'] ?? $data['entity_id'] ?? null;
+            $state = $data['state'] ?? $data['new_state'] ?? null;
+            $attributes = $data['attributes'] ?? [];
+        } else {
+            logger()->error('Unexpected params structure', ['params' => $params]);
+            return;
+        }
+
+        logger()->info('DeviceCard entityStateChanged parsed', [
+            'component_entity' => $this->entityId,
+            'received_entity' => $entityId,
+            'state' => $state,
+            'attributes' => $attributes
+        ]);
+
+        if ($entityId !== $this->entityId) {
+            logger()->info("Entity ID mismatch: {$entityId} !== {$this->entityId}");
+            return;
+        }
+
+        logger()->info("✅ Updating {$this->entityId} to state: {$state}");
+
+        // Eigenen State aktualisieren
+        $this->state = $state;
+        $this->entityAttributes = array_merge($this->entityAttributes, $attributes);
+        $this->friendlyName = $this->entityAttributes['friendly_name'] ?? $this->entityId;
+
+        // Event an Kind-Komponenten weiterleiten - als drei Parameter
+        if ($this->isLight) {
+            $this->dispatch('entityStateChanged',
+                $entityId,
+                $state,
+                $attributes
+            )->to('ha.light');
+        } elseif ($this->isSwitch) {
+            $this->dispatch('entityStateChanged',
+                $entityId,
+                $state,
+                $attributes
+            )->to('ha.switches');
         }
     }
 
     public function toggle()
     {
         try {
-            $response = Http::post(
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . config('homeassistant.token'),
+            ])->post(
                 config('homeassistant.url') . '/api/services/homeassistant/toggle',
                 ['entity_id' => $this->entityId]
             );
 
             if ($response->successful()) {
-                $this->loadEntityState();
+                // State wird automatisch via WebSocket aktualisiert
+                // Aber als Fallback kurz warten und refreshen
+                usleep(100000); // 100ms warten
+                $this->refreshFromApi();
             }
         } catch (\Exception $e) {
-            session()->flash('error', 'Fehler beim Schalten: ' . $e->getMessage());
-        }
-    }
-
-    public function setBrightness()
-    {
-        try {
-            Http::post(
-                config('homeassistant.url') . '/api/services/light/turn_on',
-                [
-                    'entity_id' => $this->entityId,
-                    'brightness' => (int) $this->brightness
-                ]
-            );
-        } catch (\Exception $e) {
-            session()->flash('error', 'Fehler beim Einstellen der Helligkeit');
-        }
-    }
-
-    public function setColorTemp()
-    {
-        try {
-            Http::post(
-                config('homeassistant.url') . '/api/services/light/turn_on',
-                [
-                    'entity_id' => $this->entityId,
-                    'color_temp_kelvin' => (int) $this->colorTemp
-                ]
-            );
-        } catch (\Exception $e) {
-            session()->flash('error', 'Fehler beim Einstellen der Farbtemperatur');
-        }
-    }
-
-    public function setColor()
-    {
-        try {
-            $r = hexdec(substr($this->rgbColor, 1, 2));
-            $g = hexdec(substr($this->rgbColor, 3, 2));
-            $b = hexdec(substr($this->rgbColor, 5, 2));
-
-            Http::post(
-                config('homeassistant.url') . '/api/services/light/turn_on',
-                [
-                    'entity_id' => $this->entityId,
-                    'rgb_color' => [$r, $g, $b]
-                ]
-            );
-        } catch (\Exception $e) {
-            session()->flash('error', 'Fehler beim Einstellen der Farbe');
+            session()->flash('error', 'Fehler beim Toggle: ' . $e->getMessage());
         }
     }
 
     public function remove()
     {
-        $this->dispatch('removeFromDashboard', entityId: $this->entityId)->to(DashboardManager::class);
+        $this->dispatch('removeFromDashboard', entityId: $this->entityId)->to('dashboard-manager');
     }
 
     public function render()
