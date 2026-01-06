@@ -80,7 +80,6 @@ class EmailController extends Controller
     {
         $extension = strtolower($request->file('email_file')->getClientOriginalExtension());
         $request->validate([
-            //'email_file' => 'required|file|mimes:eml,msg|max:51200', // max 50MB
             'email_file' => 'required|file|mimetypes:application/octet-stream,text/plain,message/rfc822|max:51200',
             'topics' => 'nullable|array',
         ]);
@@ -142,21 +141,23 @@ class EmailController extends Controller
         $extension = pathinfo($originalFilename, PATHINFO_EXTENSION);
         $storedFilename = Str::uuid() . '.' . $extension;
 
-        // Speichere Datei in storage/app/attachments
         $path = 'attachments/' . $email->id;
-        Storage::put(
-            $path . '/' . $storedFilename,
-            $attachment->getContent()
-        );
 
-        // Erstelle Attachment-Eintrag
+        // Explizit 'local' Disk verwenden
+        if (!Storage::disk('local')->exists($path)) {
+            Storage::disk('local')->makeDirectory($path);
+        }
+
+        $fullPath = $path . '/' . $storedFilename;
+        Storage::disk('local')->put($fullPath, $attachment->getContent());
+
         Attachment::create([
             'email_id' => $email->id,
             'original_filename' => $originalFilename,
             'stored_filename' => $storedFilename,
             'mime_type' => $attachment->getContentType(),
             'file_size' => strlen($attachment->getContent()),
-            'storage_path' => $path . '/' . $storedFilename,
+            'storage_path' => $fullPath,
         ]);
     }
 

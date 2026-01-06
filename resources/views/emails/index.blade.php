@@ -218,7 +218,7 @@
                                     <div class="flex flex-wrap gap-2">
                                         @foreach ($email->attachments as $attachment)
                                             <button
-                                                onclick="showAttachment({{ $attachment->id }},  '{{ $attachment->original_filename }}', '{{ asset('storage/' . $attachment->storage_path) }}', true)"
+                                                onclick="showAttachment({{ $attachment->id }}, '{{ $attachment->original_filename }}', '{{ route('attachments.view', $attachment) }}', true)"
                                                 class="inline-flex items-center gap-2 px-4 py-2 text-sm transition bg-gray-100 rounded-lg hover:bg-gray-200">
                                                 <i class="fas {{ $attachment->icon_class }} text-gray-600"></i>
                                                 <span
@@ -414,15 +414,30 @@
             const modalDownload = document.getElementById('modalDownload');
 
             modalTitle.textContent = filename;
+            modalDownload.href = `/attachments/${id}/download`;
 
             if (canPreview && previewUrl) {
                 modalIframe.classList.remove('hidden');
                 modalNoPreview.classList.add('hidden');
-                modalIframe.src = previewUrl;
+
+                // Wichtig: src NACH dem Einblenden setzen
+                modalIframe.src = '';
+                setTimeout(() => {
+                    modalIframe.src = previewUrl;
+                }, 100);
+
+                // Debug: Zeige URL in Console
+                console.log('Loading preview:', previewUrl);
+
+                // Error handling für iframe
+                modalIframe.onerror = function() {
+                    console.error('Failed to load:', previewUrl);
+                    modalIframe.classList.add('hidden');
+                    modalNoPreview.classList.remove('hidden');
+                };
             } else {
                 modalIframe.classList.add('hidden');
                 modalNoPreview.classList.remove('hidden');
-                modalDownload.href = `/attachments/${id}/download`;
             }
 
             modal.classList.add('active');

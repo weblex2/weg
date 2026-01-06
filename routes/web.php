@@ -80,7 +80,13 @@ Route::put('emails/{email}/topics', [EmailController::class, 'updateTopics'])
 Route::get('/email_addresses', [EmailAddressController::class, 'index'])->name('email_addresses.index');
 Route::post('/email_addresses', [EmailAddressController::class, 'store'])->name('email_addresses.store');
 Route::delete('/email_addresses/{email}', [EmailAddressController::class, 'destroy'])->name('email_addresses.destroy');
+Route::get('/attachments/{attachment}/view', [EmailController::class, 'viewAttachment'])
+    ->name('attachments.view');
 
+Route::get('/attachments/{attachment}/download', [EmailController::class, 'downloadAttachment'])
+    ->name('attachments.download');
+
+    
 
 Route::prefix('homeassistant')->group(function () {
     Route::post('/dashboard/save', [HomeAssistantController::class, 'saveDashboard']);
