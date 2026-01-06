@@ -20,6 +20,7 @@
         "meilisearch/meilisearch-php": "^1.16",
         "php-mime-mail-parser/php-mime-mail-parser": "^9.0",
         "predis/predis": "^3.3",
+        "rap2hpoutre/laravel-log-viewer": "^2.5",
         "react/event-loop": "^1.6",
         "react/socket": "^1.17",
         "spatie/laravel-medialibrary": "^11.17",
