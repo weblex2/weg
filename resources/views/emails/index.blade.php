@@ -84,7 +84,7 @@
         <!-- Drag & Drop Upload Zone -->
         <div id="dropzone" class="p-8 mb-6 text-center bg-white rounded-lg cursor-pointer dropzone">
             <i class="mb-4 text-6xl text-gray-400 fas fa-cloud-upload-alt"></i>
-            <h3 class="mb-2 text-xl font-semibold text-gray-700">Email hier ablegen</h3>
+            <h3 class="mb-2 text-xl font-semibold text-gray-700">Email hier ablegen 1</h3>
             <p class="mb-4 text-gray-500">Ziehen Sie .eml oder .msg Dateien hierher oder klicken Sie zum Auswählen</p>
             <input type="file" id="fileInput" accept=".eml,.msg" multiple class="hidden">
             <button onclick="document.getElementById('fileInput').click()"
