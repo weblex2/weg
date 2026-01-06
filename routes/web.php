@@ -86,6 +86,7 @@ Route::get('/attachments/{attachment}/view', [EmailController::class, 'viewAttac
 Route::get('/attachments/{attachment}/download', [EmailController::class, 'downloadAttachment'])
     ->name('attachments.download');
 
+Route::get('logs', [\Rap2hpoutre\LaravelLogViewer\LogViewerController::class, 'index']);
 
 Route::get('/test-log', function() {
     \Log::info('Test log entry');
